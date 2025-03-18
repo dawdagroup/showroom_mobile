@@ -12,7 +12,7 @@ class ApiService extends ApiMaster {
       'password': password,
       'appVersion': appVersion,
     };
-    final uri = buildUri('/auth/token/'); // Change to Uri.https if available
+    final uri = buildUri('/auth/mobile/token/'); // Change to Uri.https if available
 
     try {
       final response = await http.post(uri, body: json.encode(queryParameters) ,headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
