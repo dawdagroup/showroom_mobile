@@ -1,156 +1,258 @@
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:intl/intl.dart';
-
 import '../modals/invoice_details_modal.dart';
+import '../modals/payment_details_modal.dart';
 
 class PrinterService {
+  static const _port = 9100;
+  static var _currencyFormat =  NumberFormat('#,##0.00');
+  static var _dateFormat = DateFormat('dd/MM/yy');
+
   final String printerIp;
   final int port;
 
-  PrinterService({required this.printerIp, this.port = 9100});
+  PrinterService({required this.printerIp, this.port = _port});
 
-  Future<void> printReceipt(InvoiceDetailsModal invoiceDetails, Map<String, String> pointsSummary) async {
+  Future<void> printReceipt(InvoiceDetailsModal invoiceDetails, Map<String, String> pointsSummary, PaymentDetailsModal? paymentDetailsModal) async {
     try {
-      // Load the printer profile
       final profile = await CapabilityProfile.load();
-
-      // Initialize the printer
       final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final result = await printer.connect(printerIp, port: port);
 
-      // Attempt to connect to the printer
-      final PosPrintResult res = await printer.connect(printerIp, port: port);
-
-      if (res == PosPrintResult.success) {
-        // Print the receipt
-        _generateSmallReceipt(printer, invoiceDetails, pointsSummary);
-
-        // Disconnect after printing
+      if (result != PosPrintResult.success) {
         printer.disconnect();
-      } else {
-        throw Exception('Could not connect to printer: ${res.msg}');
+        throw Exception('Printer connection failed: ${result.msg}');
       }
+
+      _generateReceiptContent(printer, invoiceDetails, pointsSummary, paymentDetailsModal);
+      printer.disconnect();
     } catch (e) {
-      throw Exception('An error occurred: $e');
+      throw Exception('Printing error: $e');
     }
   }
 
-  void _generateSmallReceipt(NetworkPrinter printer, InvoiceDetailsModal invoiceDetails, Map<String, String> pointsSummary) {
-    printer.setStyles(const PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size5, width: PosTextSize.size5));
-    printer.text('           APPLIANCE ZONE LIMITED');
-    printer.text('     P.O.BOX 82580-80100 Mombasa Kenya');
-    printer.text('           Email: info@azone.co.ke');
-    printer.text('        Toll Free No: 0800 722242');
-    printer.text('           PIN No: P051633009W');
-
-    printer.emptyLines(2);
-
-    printer.setStyles(const PosStyles(align: PosAlign.left, bold: true, height: PosTextSize.size5, width: PosTextSize.size5));
-    printer.text('Cash Sale #: ${invoiceDetails.invoiceNumber}');
-    printer.text('Date/Time: ${DateFormat('dd/MM/yy').format(invoiceDetails.invoiceDate)}');
-    printer.text('Customer Name: ${invoiceDetails.customerName}');
-    printer.text('Cust PIN No: ${invoiceDetails.customerKraPin ?? 'N/A'}');
-
-    printer.emptyLines(1);
-    printer.text('------------------------------------------');
-    printer.text('ITEM            QTY     PRICE       AMOUNT');
-    printer.text('------------------------------------------');
-
-    for (var item in invoiceDetails.invoiceItems) {
-      double itemTotal = item.itemPriceAfVat * item.quantity;
-      printer.text('${item.itemGroup + '-' + item.itemModelNo}        ${item.quantity}       ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(item.itemPriceAfVat)}      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(itemTotal)}');
+  void _generateReceiptContent(NetworkPrinter printer, InvoiceDetailsModal details, Map<String, String> points, PaymentDetailsModal? paymentDetailsModal) {
+    var pointsRedeemed = points['Points Redeemed'] ?? 0;
+    _printHeader(printer);
+    _printCustomerInfo(printer, details);
+    if (points.isNotEmpty) {
+      _printLoyaltyPoints(printer, points);
     }
+    _printItemsTable(printer, details.invoiceItems);
+    _printTotals(printer, details, double.parse(pointsRedeemed.toString()));
+    _printPaymentDetails(printer, details, paymentDetailsModal);
+    _printFooter(printer, details.servedBy);
 
-    printer.text('------------------------------------------');
-    printer.text('TOTAL ITEMS:                             ${invoiceDetails.invoiceItems.length}');
-    printer.text('------------------------------------------');
-    double subTotal = invoiceDetails.invoiceTotal - invoiceDetails.invoiceVatTotal;
-    printer.text('SUB-TOTAL:                  ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(subTotal)}');
-    printer.text('VAT:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
-    printer.text('TOTAL:                      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
-    printer.text('------------------------------------------');
-    printer.text('CODE    RATE     VATABLE AMT       VAT AMT');
-    printer.text('A        16%      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(subTotal)}        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
-    printer.text('------------------------------------------');
-    printer.text('TOTAL:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
-    printer.text('CASH:                         ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceAmtRecd)}');
-    double change = invoiceDetails.invoiceAmtRecd - invoiceDetails.invoiceTotal;
-    printer.text('CHANGE:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(change)}');
+    _printDeliveryTermsInfo(printer, [
+      {'DET': 'Delivery Terms'},
+      {'TBD': 'To Be Delivered'},
+      {'CBC': 'Colleced By Customer'},
+    ]);
 
-    printer.emptyLines(1);
-    printer.text('------------------------------------------');
-    printer.text('PRICES INCLUSIVE OF VAT WHERE APPLICABLE');
-    printer.text('------------------------------------------');
-    printer.text('You were served by: ${invoiceDetails.servedBy}');
-    printer.text('------------------------------------------');
+    _printControlUnitInfo(printer, [
+      {'Date/Time': details.cuDate ?? 'N/A'},
+      {'CU Serial': details.cuSerial ?? 'N/A'},
+      {'CU No': details.fiscalizationNumber ?? 'N/A'},
+    ]);
 
-    if(pointsSummary.isNotEmpty){
-      _printLoyaltyPointsSummary(printer, pointsSummary);
-      printer.emptyLines(1);
-    }
 
-    final List<Map<String, String>> controlUnitInfo = [
-      {'Date/Time': invoiceDetails.cuDate != null ? DateFormat('dd/MM/yy H:S').format(invoiceDetails.cuDate) : 'N/A'},
-      {'CU Serial': invoiceDetails.cuSerial ?? 'N/A'},
-      {'CU No': invoiceDetails.fiscalizationNumber ?? 'N/A'},
-    ];
-
-    _printControlUnitTable(printer, controlUnitInfo);
-
-    if(invoiceDetails.fiscalizationNumber != null){
-      _printQRCode(printer, invoiceDetails.fiscalizationNumber);
+    if (details.fiscalizationNumber != null) {
+      _printQRCode(printer, details.fiscalizationNumber!);
     }
 
     printer.feed(2);
     printer.cut();
   }
 
-  void _printControlUnitTable(NetworkPrinter printer, List<Map<String, String>> controlUnitInfo) {
-    const int col1Width = 17;
-    const int col2Width = 21;
-    String separator = '+${List.filled(col1Width, '-').join()}+${List.filled(col2Width, '-').join()}+';
+  void _printHeader(NetworkPrinter printer) {
+    printer
+      ..setStyles(Styles.header)
+      ..text('           APPLIANCE ZONE LIMITED')
+      ..text('     P.O.BOX 82580-80100 Mombasa Kenya')
+      ..text('           Email: info@azone.co.ke')
+      ..text('        Toll Free No: 0800 722242')
+      ..text('           PIN No: P051633009W')
+      ..emptyLines(1)
+      ..text('               TAX INVOICE    ')
+      ..emptyLines(1);
+  }
 
-    printer.setStyles(const PosStyles(bold: true, align: PosAlign.center));
-    printer.text(separator);
-    printer.text('|       Control Unit Information        |');
-    printer.text(separator);
+  void _printCustomerInfo(NetworkPrinter printer, InvoiceDetailsModal details) {
+    printer
+      ..setStyles(Styles.leftBold)
+      ..text('Showroom Name #: ${details.showroomName}')
+      ..text('Cash Sale #: ${details.invoiceNumber}')
+      ..text('Date/Time: ${_dateFormat.format(details.invoiceDate)} ${details.invoiceTime}')
+      ..text('Customer Name: ${details.customerName}')
+      ..text('Cust PIN No: ${details.customerKraPin ?? 'N/A'}')
+      ..emptyLines(1);
+  }
 
-    printer.setStyles(const PosStyles(bold: false, align: PosAlign.left));
-    for (var info in controlUnitInfo) {
-      final key = info.keys.first;
-      final value = info.values.first;
-      String formattedKey = key.padRight(col1Width - 2);
-      String formattedValue = value.padRight(col2Width - 2);
-      String row = '| $formattedKey | $formattedValue |';
-      printer.text(row);
+  void _printItemsTable(NetworkPrinter printer, List<InvoiceItem> items) {
+    printer
+      ..text('-' * 42)
+      ..text('ITEM${' ' * 5}DET${' ' * 4}QTY${' ' * 5}PRICE${' ' * 5}AMOUNT(KES)')
+      ..text('-' * 42);
+
+    for (final item in items) {
+      final total = item.itemPriceAfVat * item.quantity;
+      printer.text(
+        _formatColumn(item.itemGroup + '-' + item.itemModelNo, 20)
+      );
+
+      String deliveryStatus = 'CBC';
+      if (item.itemWarehouseCode.toString().contains('03')){
+        deliveryStatus = "TBD";
+      }
+      
+      printer.text(
+        '${' ' * 4}${_formatColumn(deliveryStatus, 0)}'
+        '${' ' * 6}${_formatColumn(item.quantity.toString(), 5)}'
+        '${' ' * 1}${_formatColumn(_currencyFormat.format(item.itemPriceAfVat), 10)}'
+        '${' ' * 2}${_formatColumn(_currencyFormat.format(total), 12)}',
+      );
+    }
+    printer.text('-' * 42);
+  }
+
+  void _printTotals(NetworkPrinter printer, InvoiceDetailsModal details, double pointsRedeemed) {
+    final subTotal = details.invoiceTotal - details.invoiceVatTotal;
+
+    printer
+      ..text('TOTAL ITEMS:${' ' * 29}${details.invoiceItems.length}')
+      ..text('-' * 42)
+      ..text(_leftRightAlign('SUB-TOTAL:', _formatCurrency(subTotal, 0)))
+      ..text(_leftRightAlign('VAT:', _formatCurrency(details.invoiceVatTotal, 0)))
+      ..text(_leftRightAlign('TOTAL:', _formatCurrency(details.invoiceTotal, 0)))
+      ..text('-' * 42)
+      ..text('CODE    RATE     VATABLE AMT       VAT AMT')
+      ..text('A        16%    ${_formatCurrency(subTotal, 0)}    ${_formatCurrency(details.invoiceVatTotal, 0)}')
+      ..text('-' * 42)
+      ..text(_leftRightAlign('TOTAL:', _formatCurrency(details.invoiceTotal, 0)))
+      ..text(_leftRightAlign('SHUKRANI AMT:', _formatCurrency(pointsRedeemed, 0)))
+      ..text(_leftRightAlign('NET PAYABLE:', _formatCurrency(details.invoiceTotal - pointsRedeemed, 0)))
+      ..text('-' * 42);
+  }
+
+  void _printPaymentDetails(NetworkPrinter printer, InvoiceDetailsModal details, PaymentDetailsModal? paymentDetailsModal) {
+    double totalPaid = paymentDetailsModal!.cashAmount + paymentDetailsModal.mpesaAmount + paymentDetailsModal.creditCardAmount;
+
+    printer
+      ..text('PAYMENT DETAILS')
+      ..text('-' * 42)
+      ..text(_leftRightAlign('CASH:', _formatCurrency(paymentDetailsModal.cashAmount, 0)))
+      ..text(_leftRightAlign('MPESA:', _formatCurrency(paymentDetailsModal.mpesaAmount, 0)))
+      ..text(_leftRightAlign('CREDIT CARD:', _formatCurrency(paymentDetailsModal.creditCardAmount, 0)))
+      ..text(_leftRightAlign('GIFT VOUCHER:', _formatCurrency(0, 0)))
+      ..text(_leftRightAlign('CHEQUE:', _formatCurrency(0, 0)))
+      ..emptyLines(1)
+      ..text(_leftRightAlign('TOTAL PAID:', _formatCurrency(totalPaid, 0)))
+      ..text(_leftRightAlign('CHANGE:', _formatCurrency(totalPaid - details.invoiceTotal, 0)));
+  }
+
+
+  String _leftRightAlign(String label, String value, {int width = 42}) {
+    int space = width - label.length - value.length;
+    return label + (' ' * space) + value;
+  }
+
+  void _printFooter(NetworkPrinter printer, String servedBy) {
+    printer
+      ..emptyLines(1)
+      ..text('-' * 42)
+      ..text('PRICES INCLUSIVE OF VAT WHERE APPLICABLE')
+      ..text('-' * 42)
+      ..text('You were served by: $servedBy')
+      ..text('-' * 42);
+  }
+
+  void _printLoyaltyPoints(NetworkPrinter printer, Map<String, String> points) {
+    _printTable(
+      printer,
+      title: 'Shukrani Loyalty Points Summary',
+      rows: points.entries.map((e) => {e.key: e.value}).toList(),
+    );
+  }
+
+  void _printControlUnitInfo(NetworkPrinter printer, List<Map<String, String>> info) {
+    _printTable(
+      printer,
+      title: 'Control Unit Information',
+      rows: info,
+    );
+  }
+
+  void _printDeliveryTermsInfo(NetworkPrinter printer, List<Map<String, String>> info) {
+    _printTable(
+      printer,
+      title: 'Delivery Terms',
+      rows: info,
+    );
+  }
+
+  void _printTable(NetworkPrinter printer, {required String title, required List<Map<String, String>> rows}) {
+    const columns = [17, 21];
+    final separator = '+${'-' * columns[0]}+${'-' * columns[1]}+';
+
+    printer
+      ..setStyles(Styles.tableHeader)
+      ..text(separator)
+      ..text('| $title${' ' * (columns[0] + columns[1] - title.length - 2)} |')
+      ..text(separator)
+      ..setStyles(Styles.tableBody);
+
+    for (final row in rows) {
+      final entry = row.entries.first;
+      printer.text(
+        '| ${_formatColumn(entry.key, columns[0] - 2)} '
+        '| ${_formatColumn(entry.value, columns[1] - 2, alignRight: true)} |',
+      );
       printer.text(separator);
     }
   }
 
   void _printQRCode(NetworkPrinter printer, String invoiceNumber) {
-    String qrContent = 'https://itax.kra.go.ke/KRA-Portal/invoiceChk.htm?actionCode=loadPage&invoiceNo=$invoiceNumber';
-    printer.setStyles(const PosStyles(align: PosAlign.center, bold: false));
-    printer.qrcode(qrContent, size: QRSize.Size6, align: PosAlign.center);
+    printer.qrcode(
+      'https://itax.kra.go.ke/KRA-Portal/invoiceChk.htm?'
+      'actionCode=loadPage&invoiceNo=$invoiceNumber',
+      size: QRSize.Size6,
+      align: PosAlign.center,
+    );
   }
 
-  void _printLoyaltyPointsSummary(NetworkPrinter printer, Map<String, String> loyaltyPoints) {
-    const int col1Width = 17;
-    const int col2Width = 21;
-    String separator = '+${List.filled(col1Width, '-').join()}+${List.filled(col2Width, '-').join()}+';
-
-    printer.setStyles(const PosStyles(bold: true, align: PosAlign.center));
-    printer.text(separator);
-    printer.text('|       Loyalty Points Summary          |');
-    printer.text(separator);
-
-    printer.setStyles(const PosStyles(bold: false, align: PosAlign.left));
-    for (var entry in loyaltyPoints.entries) {
-      String formattedKey = entry.key.padRight(col1Width - 2);
-      String formattedValue = entry.value.padLeft(col2Width - 2);
-      String row = '| $formattedKey | $formattedValue |';
-      printer.text(row);
-      printer.text(separator);
-    }
+  String _formatColumn(dynamic content, int width, {bool alignRight = false}) {
+    final text = content.toString();
+    return alignRight ? text.padLeft(width) : text.padRight(width);
   }
 
+  String _formatCurrency(double amount, int padding) {
+    return _currencyFormat.format(amount).padLeft(padding);
+  }
+}
+
+class Styles {
+  static const header = PosStyles(
+    align: PosAlign.center,
+    bold: true,
+    height: PosTextSize.size5,
+    width: PosTextSize.size5,
+  );
+
+  static const leftBold = PosStyles(
+    align: PosAlign.left,
+    bold: true,
+    height: PosTextSize.size5,
+    width: PosTextSize.size5,
+  );
+
+  static const tableHeader = PosStyles(
+    bold: true,
+    align: PosAlign.center,
+  );
+
+  static const tableBody = PosStyles(
+    bold: false,
+    align: PosAlign.left,
+  );
 }

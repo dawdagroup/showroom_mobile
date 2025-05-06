@@ -66,6 +66,7 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
           }
           Map<String, dynamic> filters = {
             'phone_number': "+254${customerPhoneController.text}",
+            'status': "active"
           };
           var response = await apiService.filterCustomers(token, filters);
           try {

@@ -11,6 +11,7 @@ import '../../../constant/constants.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/customer_points_modal.dart';
 import '../../../modals/invoice_details_modal.dart';
+import '../../../modals/payment_details_modal.dart';
 import '../../../modals/printer_address_modal.dart';
 import '../../../modals/printer_layout_modal.dart';
 import '../../../modals/showroom_modal.dart';
@@ -273,12 +274,19 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
     
     ShowroomModal? showroomDetails = await _dbHelper.getShowroom();
 
+    
+    if(showroomDetails == null) {
+      Navigator.pop(context);
+      dynamicMaster.displayError(context, "Error", "No showroom details found.");
+      return;
+    }
+
     if (layoutId == 1) {
       try {
 
         Map<String, dynamic> filters = {};
 
-        filters["showroom_id"] = showroomDetails?.showroom_id.toString();
+        filters["showroom_id"] = showroomDetails.showroom_id.toString();
         filters["printer_type_id"] = 2.toString();
 
         var printerAddressResults = await apiService.getPrinterShowroomAddress(token, filters);
@@ -286,9 +294,16 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
         if(printerAddressResults["status"] == "success"){
           PrinterAddressModal printerAddress = printerAddressModalFromJson(jsonEncode(printerAddressResults["data"][0]));
 
+          var paymentDetails = await apiService.getInvoicePaymentDetails(token, invoiceDetailsObj!.invoiceNumber.toString());
+
+          PaymentDetailsModal? paymentDetailsModal;
+
+          if(paymentDetails["status"] == "success" && paymentDetails["data"].length > 0){
+            paymentDetailsModal = paymentDetailsModalFromJson(jsonEncode(paymentDetails["data"][0]));
+          }
+
           final printerService = PrinterService(printerIp: printerAddress.address);
 
-          
           Map<String, String> pointsSummary = {};
 
           if(loyaltyTransactionList.isNotEmpty){
@@ -303,9 +318,13 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
             pointsSummary["Points Earned"] = pointsEarned.toString();
             pointsSummary["Points Redeemed"] = pointsRedeemed.toString();
             pointsSummary["Points Balance"] = pointsBalance.toString();
+          }else{
+            pointsSummary["Points Earned"] = "0";
+            pointsSummary["Points Redeemed"] = "0";
+            pointsSummary["Points Balance"] = customerPoints?.balancePoints.toString() ?? "0";
           }
 
-          await printerService.printReceipt(invoiceDetailsObj!, pointsSummary);
+          await printerService.printReceipt(invoiceDetailsObj!, pointsSummary, paymentDetailsModal);
 
           dynamicMaster.displaySuccessMessage(context, "Print successful");
         }else{
@@ -314,14 +333,23 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
       } catch (e) {
         dynamicMaster.displayError(context, "Error", "Failed to print: $e");
       }
-    } else {
+    } else if(layoutId == 5){
+      // redirect to pdf viewer
+      Navigator.pushNamed(context, "/pdf_view", arguments: {
+        "documentType": "invoice",
+        "documentNumber": widget.invoiceNumber.toString(),
+        "printerTypeId": 3,
+        "layoutId": 5,
+        "showroomId": showroomDetails.showroom_id.toString()
+      });
+    }else{
       
       try {
         Map<String, dynamic> filters = {};
 
         filters["layout_id"] = layoutId.toString();
         filters["printer_type_id"] = 3.toString();
-        filters["showroom_id"] = showroomDetails?.showroom_id.toString();
+        filters["showroom_id"] = showroomDetails.showroom_id.toString();
         filters["documentNumber"] = invoiceDetailsObj!.invoiceNumber.toString();
         filters["documentType"] = "invoice";
         

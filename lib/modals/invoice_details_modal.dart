@@ -18,8 +18,10 @@ class InvoiceDetailsModal {
     dynamic docEntry;
     dynamic invoiceNumber;
     DateTime invoiceDate;
+    String invoiceTime;
     dynamic warehouseCode;
     dynamic warehouseName;
+    dynamic showroomName;
     dynamic deliveryLocation;
     dynamic customerName;
     dynamic customerPhoneNo;
@@ -44,8 +46,10 @@ class InvoiceDetailsModal {
         required this.docEntry,
         required this.invoiceNumber,
         required this.invoiceDate,
+        required this.invoiceTime,
         required this.warehouseCode,
         required this.warehouseName,
+        required this.showroomName,
         required this.deliveryLocation,
         required this.customerName,
         required this.customerPhoneNo,
@@ -71,8 +75,10 @@ class InvoiceDetailsModal {
         docEntry: json["docEntry"],
         invoiceNumber: json["invoiceNumber"],
         invoiceDate: DateTime.parse(json["invoiceDate"]),
+        invoiceTime: json["invoiceTime"],
         warehouseCode: json["warehouseCode"],
         warehouseName: json["warehouseName"],
+        showroomName: json["showroomName"],
         deliveryLocation: json["deliveryLocation"],
         customerName: json["customerName"],
         customerPhoneNo: json["customerPhoneNo"],
@@ -98,8 +104,10 @@ class InvoiceDetailsModal {
         "docEntry": docEntry,
         "invoiceNumber": invoiceNumber,
         "invoiceDate": "${invoiceDate.year.toString().padLeft(4, '0')}-${invoiceDate.month.toString().padLeft(2, '0')}-${invoiceDate.day.toString().padLeft(2, '0')}",
+        "invoiceTime": invoiceTime,
         "warehouseCode": warehouseCode,
         "warehouseName": warehouseName,
+        "showroomName": showroomName,
         "deliveryLocation": deliveryLocation,
         "customerName": customerName,
         "customerPhoneNo": customerPhoneNo,
@@ -129,6 +137,7 @@ class InvoiceItem {
     double quantity;
     dynamic itemOpenQty;
     dynamic itemWarehouseCode;
+    dynamic itemPictureName;
     dynamic itemInventoryStatus;
     dynamic itemVatPerc;
     dynamic itemPrice;
@@ -157,6 +166,7 @@ class InvoiceItem {
         required this.quantity,
         required this.itemOpenQty,
         required this.itemWarehouseCode,
+        required this.itemPictureName,
         required this.itemInventoryStatus,
         required this.itemVatPerc,
         required this.itemPrice,
@@ -186,6 +196,7 @@ class InvoiceItem {
         quantity: json["quantity"],
         itemOpenQty: json["itemOpenQty"],
         itemWarehouseCode: json["itemWarehouseCode"],
+        itemPictureName: json["itemPictureName"],
         itemInventoryStatus: json["itemInventoryStatus"],
         itemVatPerc: json["itemVatPerc"],
         itemPrice: json["itemPrice"]?.toDouble(),
@@ -215,6 +226,7 @@ class InvoiceItem {
         "quantity": quantity,
         "itemOpenQty": itemOpenQty,
         "itemWarehouseCode": itemWarehouseCode,
+        "itemPictureName": itemPictureName,
         "itemInventoryStatus": itemInventoryStatus,
         "itemVatPerc": itemVatPerc,
         "itemPrice": itemPrice,

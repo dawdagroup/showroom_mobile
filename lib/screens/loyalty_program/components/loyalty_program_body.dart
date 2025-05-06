@@ -204,8 +204,6 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
 
       var response = await apiService.addCustomer(token, data);
 
-      print(response);
-
       Navigator.pop(context);
 
       if (response["status"] == "success") {

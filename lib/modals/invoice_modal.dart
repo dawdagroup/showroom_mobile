@@ -16,6 +16,7 @@ class InvoiceModal {
     dynamic docEntry;
     dynamic invoiceNumber;
     DateTime invoiceDate;
+    String invoiceTime;
     dynamic warehouseCode;
     dynamic warehouseName;
     dynamic deliveryLocation;
@@ -38,6 +39,7 @@ class InvoiceModal {
         required this.docEntry,
         required this.invoiceNumber,
         required this.invoiceDate,
+        required this.invoiceTime,
         required this.warehouseCode,
         required this.warehouseName,
         required this.deliveryLocation,
@@ -61,6 +63,7 @@ class InvoiceModal {
         docEntry: json["docEntry"],
         invoiceNumber: json["invoiceNumber"],
         invoiceDate: DateTime.parse(json["invoiceDate"]),
+        invoiceTime: json["invoiceTime"],
         warehouseCode: json["warehouseCode"],
         warehouseName: json["warehouseName"],
         deliveryLocation: json["deliveryLocation"],
@@ -84,6 +87,7 @@ class InvoiceModal {
         "docEntry": docEntry,
         "invoiceNumber": invoiceNumber,
         "invoiceDate": "${invoiceDate.year.toString().padLeft(4, '0')}-${invoiceDate.month.toString().padLeft(2, '0')}-${invoiceDate.day.toString().padLeft(2, '0')}",
+        "invoiceTime": invoiceTime,
         "warehouseCode": warehouseCode,
         "warehouseName": warehouseName,
         "deliveryLocation": deliveryLocation,

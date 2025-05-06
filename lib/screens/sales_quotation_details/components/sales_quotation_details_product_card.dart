@@ -1,11 +1,76 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../components/dynamic_widgets.dart';
 import '../../../constant/constants.dart';
 import '../../../modals/sales_quotation_line_item_modal.dart';
 import 'package:intl/intl.dart';
 
-class SalesQuotationDetailsProductCard extends StatelessWidget {
+import '../../../providers/session_provider.dart';
+import '../../../services/api_service.dart';
+
+class SalesQuotationDetailsProductCard extends StatefulWidget {
   final SalesQuotationLineItemModal salesQuotationLineItemModal;
   const SalesQuotationDetailsProductCard({super.key, required this.salesQuotationLineItemModal});
+
+  @override
+  State<SalesQuotationDetailsProductCard> createState() => _SalesQuotationDetailsProductCardState();
+}
+
+class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetailsProductCard> {
+  ApiService apiService = ApiService();
+  DynamicMaster dynamicMaster = DynamicMaster();
+  late SessionProvider sessionProvider;
+  bool isLoading = false;
+  String? productImagePath;
+  
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    
+    getProductImage();
+  }
+
+  
+  // get the product image
+  Future<void> getProductImage() async {
+    setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+
+      if(widget.salesQuotationLineItemModal.itemPictureName == null || widget.salesQuotationLineItemModal.itemPictureName == "") {
+        setState(() { isLoading = false; productImagePath = "assets/images/blank_image.png"; });
+        return;
+      }
+
+      var response = await apiService.getProductImage(token, widget.salesQuotationLineItemModal.itemPictureName);
+
+      if(response["status"] == "success"){
+        setState(() { productImagePath = response["file_path"]; });
+      }else{
+        dynamicMaster.displayError(context, "Error", response["message"]);
+      }
+    } catch (e) {
+      dynamicMaster.displayError(context, "Error", e.toString());
+    }
+    setState(() { isLoading = false; });
+  }
 
 
   Future<void> _showProductDetailsDialog(BuildContext context) async {
@@ -32,7 +97,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                         ],
                       ),
                       SizedBox(height: size.height * 0.02,),
-                      Text(salesQuotationLineItemModal.itemCode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+                      Text(widget.salesQuotationLineItemModal.itemCode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
                       const Divider(height: 10, thickness: 1,),
                       SizedBox(height: size.height * 0.02,),
                       Column(
@@ -41,7 +106,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Price: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(salesQuotationLineItemModal.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -49,7 +114,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Quantity: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(salesQuotationLineItemModal.quantity.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(widget.salesQuotationLineItemModal.quantity.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -57,7 +122,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Discount(%): ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(salesQuotationLineItemModal.itemDiscountPerc.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(widget.salesQuotationLineItemModal.itemDiscountPerc.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -65,7 +130,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("VAT Group: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(salesQuotationLineItemModal.itemVatGroup, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(widget.salesQuotationLineItemModal.itemVatGroup, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -73,7 +138,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("VAT(%): ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(salesQuotationLineItemModal.itemVatPerc.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(widget.salesQuotationLineItemModal.itemVatPerc.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -81,7 +146,7 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Warehouse: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(salesQuotationLineItemModal.itemWarehouseCode, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(widget.salesQuotationLineItemModal.itemWarehouseCode, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -123,19 +188,26 @@ class SalesQuotationDetailsProductCard extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              salesQuotationLineItemModal.itemImageUrl == null ? Image.asset("assets/images/blank_image.png", width: size.width * 0.3) : Image.network(salesQuotationLineItemModal.itemImageUrl, width: size.width * 0.3),
+              SizedBox(
+                width: size.width * 0.3,
+                child: isLoading ? 
+                  const Center(child: CircularProgressIndicator()) : 
+                  productImagePath == null ? 
+                  Image.asset("assets/images/blank_image.png", width: size.width * 0.3) : 
+                  Image.file(File(productImagePath!), fit: BoxFit.cover,)
+              ),
               SizedBox(
                 width: size.width * 0.6,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(salesQuotationLineItemModal.itemCode, style: const TextStyle(fontSize: 16, color: Colors.white),),
+                    Text(widget.salesQuotationLineItemModal.itemCode, style: const TextStyle(fontSize: 16, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
-                    SizedBox(width: size.width * 0.6, child: Text(salesQuotationLineItemModal.itemModelNo,softWrap: true, style: const TextStyle(fontSize: 14, color: Colors.white),)),
+                    SizedBox(width: size.width * 0.6, child: Text(widget.salesQuotationLineItemModal.itemModelNo,softWrap: true, style: const TextStyle(fontSize: 14, color: Colors.white),)),
                     SizedBox(height: size.height * 0.01,),
-                    Text("Qty: ${salesQuotationLineItemModal.quantity.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
+                    Text("Qty: ${widget.salesQuotationLineItemModal.quantity.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
-                    Text("Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(salesQuotationLineItemModal.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
+                    Text("Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
                   ],
                 ),

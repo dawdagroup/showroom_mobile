@@ -183,17 +183,6 @@ class CartController extends GetxController{
   //   update();
   }
 
-  // Helper methods
-  // Future<int> _getOrCreateProductId(ProductModal product) async {
-  //   final existingProduct = await _dbHelper.queryRaw('SELECT id FROM cart_products WHERE item_code = ?',[product.itemCode], );
-
-  //   if (existingProduct.isNotEmpty) {
-  //     return existingProduct.first['id'];
-  //   } else {
-  //     return await _dbHelper.insertRaw('INSERT INTO cart_products (item_code, quantity, price, initial_discount) VALUES (?, ?, ?, ?)', [product.itemCode, 1, product.price, product.discount],);
-  //   }
-  // }
-
   Future<int> _getOrCreateProductId(ProductModal product) async {
     try {
       final existingProduct = await _dbHelper.queryRaw(
@@ -216,7 +205,6 @@ class CartController extends GetxController{
       rethrow;
     }
   }
-
 
   Future<Map<String, dynamic>> getProductDetails(ProductModal product) async {
     final productId = await _getOrCreateProductId(product);

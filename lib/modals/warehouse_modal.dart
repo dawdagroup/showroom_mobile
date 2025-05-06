@@ -46,4 +46,9 @@ class WarehouseModal {
         "is_sellable": isSellable,
         "is_hq_store": isHqStore,
     };
+    
+  @override
+  String toString() {
+    return name;
+  }
 }

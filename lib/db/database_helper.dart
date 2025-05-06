@@ -27,7 +27,7 @@ class DatabaseHelper {
     return _database!;
   }
 
-    Future<Database> _initDatabase() async {
+  Future<Database> _initDatabase() async {
     // Get the path to the database directory.
     final databasePath = await getDatabasesPath();
     
@@ -167,12 +167,13 @@ class DatabaseHelper {
     final db = await database;
     // delete all the data in the business_partners table
     await db.rawDelete('DELETE FROM business_partners WHERE 1=1');
-
+    
     // insert the data into the business_partners table
     for (var businessPartner in businessPartnersList) {
-      await insertRaw('INSERT INTO business_partners (name, code, requires_customer_id, requires_full_payment, auto_print_receipt, status) VALUES (?,?,?,?,?,?)', [
+      await insertRaw('INSERT INTO business_partners (name, code, requires_customer_id, requires_full_payment, auto_print_receipt, status, requires_partial_payment, eligile_for_loyalty, is_glovo) VALUES (?,?,?,?,?,?,?,?,?)', [
         businessPartner["name"], businessPartner["code"], businessPartner["requires_customer_id"],
-        businessPartner["requires_full_payment"], businessPartner["auto_print_receipt"], businessPartner["status"]
+        businessPartner["requires_full_payment"], businessPartner["auto_print_receipt"], businessPartner["status"],
+        businessPartner["requires_partial_payment"], businessPartner["eligile_for_loyalty"], businessPartner["is_glovo"]
       ],);
     }
   }
@@ -366,4 +367,37 @@ class DatabaseHelper {
     await deleteRaw('DELETE FROM goods_issue_products WHERE goods_issue_id = ?', [goodsIssueId]);
   }
 
+  Future<int> getOrCreateStockTransferScan(String stockTransferNumber) async {
+    final existingData = await queryRaw('SELECT * FROM stock_transfer_scan WHERE stock_transfer_number = ?', [stockTransferNumber]);
+
+    if (existingData.isNotEmpty) {
+      return existingData.first['id'];
+    }
+    return await insertRaw('INSERT INTO stock_transfer_scan (stock_transfer_number) VALUES (?)', [stockTransferNumber]);
+  }
+
+  Future<List<Map<String, dynamic>>> getStockTransferProducts(int stockTransferId) async {
+    final db = await database;
+    return await db.rawQuery('SELECT * FROM stock_transfer_products WHERE stock_transfer_id = ?', [stockTransferId]);
+  }
+
+  Future<List<Map<String, dynamic>>> getStockTransferProductSerialNumbers(int stockTransferId, String itemCode) async {
+    final db = await database;
+    return await db.rawQuery('SELECT * FROM stock_transfer_products WHERE stock_transfer_id = ? AND item_code = ?', [stockTransferId, itemCode]);
+  }
+
+  Future<void> insertStockTransferProduct(int stockTransferId, String itemCode, String serialNumber) async {
+    await insertRaw('INSERT INTO stock_transfer_products (stock_transfer_id, item_code, serial_number) VALUES (?, ?, ?)', [stockTransferId, itemCode, serialNumber],);
+  }
+
+  Future<void> deleteStockTransferProduct(int stockTransferId, String itemCode, String serialNumber) async {
+    await deleteRaw('DELETE FROM stock_transfer_products WHERE stock_transfer_id = ? AND item_code = ? AND serial_number = ?', [stockTransferId, itemCode, serialNumber]);
+  }
+
+  Future<void> deleteStockTransfer(int stockTransferId) async {
+    await deleteRaw('DELETE FROM stock_transfer_scan WHERE id = ?', [stockTransferId]);
+
+    await deleteRaw('DELETE FROM stock_transfer_products WHERE stock_transfer_id = ?', [stockTransferId]);
+  }
+  
 }

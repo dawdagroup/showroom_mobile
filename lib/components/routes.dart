@@ -5,6 +5,7 @@ import '../modals/invoice_details_modal.dart';
 import '../modals/product_serial_number_modal.dart';
 import '../modals/purchase_order_details_modal.dart';
 import '../modals/sales_order_details_modal.dart';
+import '../screens/goods_issue/components/goods_issue_create_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/invoice/invoice_screen.dart';
 import '../screens/invoice_details/invoice_details_screen.dart';
@@ -12,6 +13,7 @@ import '../screens/login/login_screen.dart';
 import '../screens/password_reset/components/password_otp_verification_screen.dart';
 import '../screens/password_reset/components/password_update_screen.dart';
 import '../screens/password_reset/password_reset_screen.dart';
+import '../screens/pdf_view/pdf_view_screen.dart';
 import '../screens/product_details/product_details_screen.dart';
 import '../screens/purchase_receipt/components/goods_issue_product_screen.dart';
 import '../screens/purchase_receipt/components/purchase_order_product_screen.dart';
@@ -31,6 +33,9 @@ import '../screens/sales_quotation_details/sales_quotation_details_screen.dart';
 import '../screens/complaints/complaint_screen.dart';
 import '../screens/complaints/components/complaint_registration_screen.dart';
 import '../screens/complaint_details/complaint_details_screen.dart';
+import '../screens/stock_transfer/components/stock_transfer_form.dart';
+import '../screens/stock_transfer/stock_transfer_screen.dart';
+import '../screens/stock_transfer_details/stcok_transfer_details_screen.dart';
 import '../screens/welcome/welcome_screen.dart';
 import '../screens/loyalty_program/loyalty_program_screen.dart';
 import '../screens/customer_details/customer_details_screen.dart';
@@ -116,12 +121,31 @@ class RouteGenerator {
       case '/goods_issue_product_screen':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => GoodsIssueProductScreen(goodsIssueDetailsLineItem: args as GoodsIssueDetailsLineItem));
+      case '/create_goods_issue':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => GoodsIssueCreateScreen(transferNumber: args as String));
       case '/sales_oder_delivery':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => SalesOrderDeliveryScreen(salesOrderDetailsObj: args as SalesOrderDetailsModal,));
       case '/sales_order_delivery_product_screen':
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(builder: (_) => SalesOrderDeliveryProductScreen(salesOrderDetailsLineItem: args['salesOrderDetailsLineItem'] as SalesOrderDetailsLineItem, serialNumberList: args['serialNumberList'] as List<ProductSerialNumberModal>,));
+      case '/stock_transfer':
+        return MaterialPageRoute(builder: (_) => const StockTransferScreen());
+      case '/pdf_view':
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(builder: (_) => PdfViewerScreen(
+          documentType: args["documentType"] as String,
+          documentNumber: args["documentNumber"] as String,
+          printerTypeId: args["printerTypeId"] as int,
+          layoutId: args["layoutId"] as int,
+          showroomId: args["showroomId"] as String,
+        ));
+      case '/stock_transfer_form':
+        return MaterialPageRoute(builder: (_) => const StockTransferForm());
+      case '/stock_transfer_details':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => StcokTransferDetailsScreen(strockTransferNumber: args as String,));
       default:
         return _errorRoute();
     }

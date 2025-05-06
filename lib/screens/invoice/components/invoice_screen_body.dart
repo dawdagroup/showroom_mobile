@@ -27,7 +27,6 @@ class _InvoiceScreenBodyState extends State<InvoiceScreenBody> {
   bool isLoading = false;
 
   List<InvoiceModal> invoiceList = [];
-
   
   @override
   void initState() {

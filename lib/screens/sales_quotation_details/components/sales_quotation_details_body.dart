@@ -12,6 +12,7 @@ import '../../../components/rounded_buttons.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/printer_layout_modal.dart';
+import '../../../modals/sale_quotation_invoice_modal.dart';
 import '../../../modals/sales_quotation_details_modal.dart';
 import '../../../modals/sales_quotation_request_modal.dart';
 import '../../../modals/showroom_modal.dart';
@@ -35,6 +36,7 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   SalesQuotationDetailsModal? salesQuotationDetailsModal;
   SalesQuotationRequestModal? salesQuotationRequestModal;
+  SaleQuotationInvoiceModal? saleQuotationInvoiceModal;
   List<PrinterLayoutModal> printerLayoutList = [];
   
 
@@ -49,6 +51,8 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
     // TODO: implement didChangeDependencies
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+
+    getSaleQuoteInvoiceNumber();
 
     getSalesQuotationDetails();
 
@@ -122,10 +126,39 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
     });
   }
 
-  Widget _buildActionButton(){
-    if (salesQuotationDetailsModal!.salesOrderStatus == "C"){   
+  Future<void> getSaleQuoteInvoiceNumber() async {
+    setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+      var response = await  apiService.getSalesQuotationInvoiceNumber(widget.salesQuotationNo, token);
+
+      if (response["status"] == "success" && response["data"] != null) {
+        saleQuotationInvoiceModal = saleQuotationInvoiceModalFromJson(jsonEncode(response["data"][0]));
+      }
+      
+    } catch (e) {
+      print(e);
+    }
+    setState(() { isLoading = false; });
+  }
+
+  Widget _buildActionButton() {
+    if (salesQuotationDetailsModal!.salesOrderStatus == "C"){
+      // get invoice notification
+      if (saleQuotationInvoiceModal == null) {
+        return const Text("No invoice found", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red),);
+      }
+
       return RoundedButton(btnText: "View Invoice", press: () {
-        Navigator.pushNamed(context, "/invoice_details", arguments: salesQuotationDetailsModal!.salesOrderRef.toString());
+        Navigator.pushNamed(context, "/invoice_details", arguments: saleQuotationInvoiceModal!.invoiceNumber.toString());
       },  btnColor: kPrimaryColor, textColor: Colors.white );
     } else if (salesQuotationDetailsModal!.salesOrderStatus == "O" && (salesQuotationRequestModal != null && salesQuotationRequestModal!.approvalStatus == "pending")) {
       return const Text("Approval Request Pending", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red),);
@@ -238,7 +271,10 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
 
   Future<void> submitSalesQuotationPrintRequest(String layout) async {
 
+    dynamicMaster.displayLoadingModal(context);
+
     if (salesQuotationDetailsModal == null) {
+      Navigator.pop(context);
       dynamicMaster.displayError(context, "Error", "No invoice details found.");
       return;
     }
@@ -247,30 +283,58 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
 
     // Ensure token is not null
     if (token == null) {
+      Navigator.pop(context);
       dynamicMaster.displayError(context, "Error", "No valid session token.");
       return;
     }
     
     ShowroomModal? showroomDetails = await _dbHelper.getShowroom();
 
-    try {
-      Map<String, dynamic> filters = {};
+    if(showroomDetails == null) {
+      Navigator.pop(context);
+      dynamicMaster.displayError(context, "Error", "No showroom details found.");
+      return;
+    }
 
-      filters["layout_id"] = layout;
-      filters["printer_type_id"] = 3.toString();
-      filters["showroom_id"] = showroomDetails?.showroom_id.toString();
-      filters["documentNumber"] = widget.salesQuotationNo;
-      filters["documentType"] = "sales_quote";
-      
-      var response = await apiService.processDocumentPrint(token, filters);
+    if(layout.isEmpty) {
+      Navigator.pop(context);
+      dynamicMaster.displayError(context, "Error", "Please select a layout.");
+      return;
+    }
+    
+    if(layout == "5"){
+      // redirect to pdf viewer
+      Navigator.pushNamed(context, "/pdf_view", arguments: {
+        "documentType": "sales_quote",
+        "documentNumber": widget.salesQuotationNo,
+        "printerTypeId": 3,
+        "layoutId": 5,
+        "showroomId": showroomDetails.showroom_id.toString()
+      });
+    }else{
 
-      if(response["status"] == "success"){
-        dynamicMaster.displaySuccessMessage(context, "Print successful");
-      }else{
-        dynamicMaster.displayError(context, "Error", response["message"]);
+      try {
+        Map<String, dynamic> filters = {};
+
+        filters["layout_id"] = layout;
+        filters["printer_type_id"] = 3.toString();
+        filters["showroom_id"] = showroomDetails.showroom_id.toString();
+        filters["documentNumber"] = widget.salesQuotationNo;
+        filters["documentType"] = "sales_quote";
+        
+        var response = await apiService.processDocumentPrint(token, filters);
+
+        Navigator.pop(context);
+
+        if(response["status"] == "success"){
+          dynamicMaster.displaySuccessMessage(context, "Print successful");
+        }else{
+          dynamicMaster.displayError(context, "Error", response["message"]);
+        }
+      } catch (e) {
+        dynamicMaster.displayError(context, "Error", "Failed to print: $e");
       }
-    } catch (e) {
-      dynamicMaster.displayError(context, "Error", "Failed to print: $e");
+
     }
   }
   

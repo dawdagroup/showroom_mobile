@@ -199,7 +199,7 @@ class _InvoiceFilterDialogState extends State<InvoiceFilterDialog> {
                     SizedBox(height: size.height * 0.01),
                     // Submit Button
                     RoundedButton(
-                      btnText: "Filter Sales Order",
+                      btnText: "Filter Invoices",
                       press: submit,
                       btnColor: kSecondaryColor,
                       textColor: kPrimaryLightColor,

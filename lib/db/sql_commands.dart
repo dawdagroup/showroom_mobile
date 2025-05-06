@@ -85,6 +85,9 @@ const List<String> tablesCreationCommands = [
         requires_customer_id BOOLEAN DEFAULT 0,
         requires_full_payment BOOLEAN DEFAULT 0,
         auto_print_receipt BOOLEAN DEFAULT 0,
+        requires_partial_payment BOOLEAN DEFAULT 0,
+        eligile_for_loyalty BOOLEAN DEFAULT 0,
+        is_glovo BOOLEAN DEFAULT 0,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -164,5 +167,24 @@ const List<String> tablesCreationCommands = [
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (goods_issue_id) REFERENCES goods_issue_scan(id) ON DELETE CASCADE
       )
+  ''',
   '''
+      CREATE TABLE stock_transfer_scan (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stock_transfer_number TEXT,
+        status TEXT DEFAULT 'active',
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+  ''',
+  '''
+      CREATE TABLE stock_transfer_products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stock_transfer_id INTEGER,
+        item_code TEXT,
+        serial_number TEXT UNIQUE DEFAULT NULL,
+        status TEXT DEFAULT 'active',
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (stock_transfer_id) REFERENCES stock_transfer_scan(id) ON DELETE CASCADE
+      )
+  ''',
 ];

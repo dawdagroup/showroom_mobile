@@ -198,7 +198,6 @@ class _InvoiceDeliveryBodyState extends State<InvoiceDeliveryBody> {
                   dynamicMaster.displayError(context, "Error", "No scanned serials found");
                 }else{
                   processInvoiceDevlivery();
-                  // invoiceController.submitDelivery();
                 }
               }, 
               btnColor: kSecondaryColor, 

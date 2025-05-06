@@ -24,9 +24,8 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
-
+  
   List<AftersaleRequestModal> listOfAftersaleRequestModal = [];
-
   bool isLoading = false;
 
   @override
@@ -59,8 +58,6 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
 
       Map<String, dynamic> response = await apiService.getAfterSaleRegister(token, filters);
 
-      print(response);
-
       if (response["status"] == "success") {
         for(var item in response["data"]){
           try{
@@ -73,13 +70,11 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
         dynamicMaster.displayError(context, "Error", response["message"]);
       }
     } catch (e) {
-      dynamicMaster.displayError(context, "Error", "We are unable to connect to the server at the moment. Please check your internet connection and try again.");
+      dynamicMaster.displayError(context, "Error", e.toString());
     }
 
     setState(() { isLoading = false; });
   }
-
-  
 
   Future<void> showFilterDialog() async {
     showModalBottomSheet(
@@ -191,11 +186,11 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
                             SizedBox(
                               width: size.width * 0.9,
                               child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Status:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
-                                dynamicMaster.showBadge(listOfAftersaleRequestModal[index].status == "Open" ? "Open" : listOfAftersaleRequestModal[index].status == "Locked" ? "Cancelled" : "Closed", listOfAftersaleRequestModal[index].status == "Open" ? Colors.yellowAccent : listOfAftersaleRequestModal[index].status == "Locked" ? Colors.red : Colors.green),
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text("Status:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
+                                  dynamicMaster.showBadge(listOfAftersaleRequestModal[index].status == "O" ? "Open" : listOfAftersaleRequestModal[index].status == "L" ? "Cancelled" : "Closed", listOfAftersaleRequestModal[index].status == "O" ? Colors.yellowAccent : listOfAftersaleRequestModal[index].status == "L" ? Colors.red : Colors.green),
                                 ],
                               ),
                             ),

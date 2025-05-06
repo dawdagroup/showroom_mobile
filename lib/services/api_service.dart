@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+
 import '../services/master/api_master.dart';
 import 'package:http/http.dart' as http;
 
@@ -12,6 +14,7 @@ class ApiService extends ApiMaster {
       'password': password,
       'appVersion': appVersion,
     };
+
     final uri = buildUri('/auth/mobile/token/'); // Change to Uri.https if available
 
     try {
@@ -156,7 +159,7 @@ class ApiService extends ApiMaster {
   Future<Map<String, dynamic>> filterTaxGroups(String sessionToken, Map<String, dynamic> filters) async{
     Map<String, dynamic> output = {};
 
-    final uri = buildUri('/core/taxt-groups', filters); // Change to Uri.https if available
+    final uri = buildUri('/core/tax-groups/', filters); // Change to Uri.https if available
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
 
@@ -515,6 +518,40 @@ class ApiService extends ApiMaster {
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         var responseData = json.decode(response.body);
 
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["data"] = responseData["data"];
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching sales quotations";
+        }
+
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while fetching sales quotations";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+  
+  Future<Map<String, dynamic>> getSalesQuotationInvoiceNumber(String documentNo, String sessionToken) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/sales/quotation-invoice/$documentNo'); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+    
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
 
         if(responseData["status"] == 'success'){
           output["status"] = "success";
@@ -1521,8 +1558,6 @@ class ApiService extends ApiMaster {
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
 
-    print(json.encode(queryParameters));
-
     try {
       final response = await http.post(uri,body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
 
@@ -1759,6 +1794,113 @@ class ApiService extends ApiMaster {
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
 
+    try {
+      final response = await http.post(uri,body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success"; 
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while processing goods receipt";
+        }
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while processing goods receipt";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+  
+  Future<Map<String, dynamic>> getPrintPreview(String sessionToken, Map<String, dynamic> queryParameters) async {
+    Map<String, dynamic> output = {};
+    
+    final queryParams = {
+      'documentType': queryParameters["documentType"],
+      'documentNumber': queryParameters["documentNumber"],
+      'printer_type_id': queryParameters["printer_type_id"],
+      'layout_id': queryParameters["layout_id"],
+      'showroom_id': queryParameters["showroom_id"],
+    };
+
+    final uri = buildUri('/printer/print/preview', queryParams);
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/temp.pdf');
+        await file.writeAsBytes(response.bodyBytes);
+        
+        output["status"] = "success"; 
+        output["message"] = "Document printed successfully";
+        output["file"] = file.path;
+        
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while processing document print";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+  
+  Future<Map<String, dynamic>> getWarehouse(String sessionToken, Map<String, dynamic> queryParameters) async {
+    Map<String, dynamic> output = {};
+    
+    final uri = buildUri('/warehouse/', queryParameters);
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success"; 
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching warehouses";
+        }
+        
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while fetching warehouses";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+
+  Future<Map<String, dynamic>> processStockTransferRequest(String sessionToken, Map<String, dynamic> queryParameters) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/stocks/transfer-request'); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
     print(json.encode(queryParameters));
 
     try {
@@ -1769,13 +1911,149 @@ class ApiService extends ApiMaster {
 
         if(responseData["status"] == 'success'){
           output["status"] = "success"; 
-          output["message"] = responseData['message'] ?? "Document printed successfully";
           output["data"] = responseData["data"];
 
         }else{
           output["status"] = "failed";
-          output["message"] = responseData['message'] ?? "An error occurred while processing document print";
+          output["message"] = responseData['message'] ?? "An error occurred while processing stock transfer request";
         }
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while processing stock transfer request";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+
+  Future<Map<String, dynamic>> getStockTransferTypes(String sessionToken, Map<String, dynamic> queryParameters) async {
+    Map<String, dynamic> output = {};
+    
+    final uri = buildUri('/stocks/transfer-types', queryParameters);
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success"; 
+          output["message"] = responseData['message'] ?? "Stock transfer types fetched successfully";
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching stock transfer types";
+        }
+        
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while fetching  stock transfer types";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+
+  Future<Map<String, dynamic>> filterStockTransfer(String sessionToken, Map<String, dynamic> filters) async{
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/stocks/transfer-request', filters); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["message"] = responseData['message'] ?? "Stock transfers fetched successfully";
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching stock transfers";
+        }
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData["detail"]['message'] ?? "An error occurred while fetching  stock transfers";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+
+  Future<Map<String, dynamic>> getStockTransferDetails(String sessionToken, String stockTransferNumber) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/stocks/transfer-request/$stockTransferNumber'); // Change to Uri.https if available
+    
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+    
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["message"] = responseData['message'] ?? "Stock transfer details fetched successfully";
+          output["data"] = responseData["data"];
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching stock transfer details";
+        }
+
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData["detail"]['message'] ?? "An error occurred while fetching  stock transfer details";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+  
+  Future<Map<String, dynamic>> getProductImage(String sessionToken, String fileName) async {
+    Map<String, dynamic> output = {};
+    
+    final uri = buildUri('/printer/print/product-image/$fileName');
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/$fileName');
+        await file.writeAsBytes(response.bodyBytes);
+        
+        output["status"] = "success"; 
+        output["message"] = "Document printed successfully";
+        output["file_path"] = file.path;
+        
       } else {
         var errorData = json.decode(response.body);
         output["status"] = "failed";
@@ -1785,6 +2063,110 @@ class ApiService extends ApiMaster {
       output["status"] = "failed";
       output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
     }
+    return output;
+  }
+
+  Future<Map<String, dynamic>> filterEvents(String sessionToken, Map<String, dynamic> filters) async{
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/coupons/events', filters); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["message"] = responseData['message'] ?? "Events fetched successfully";
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching events";
+        }
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData["detail"]['message'] ?? "An error occurred while fetching  events";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+
+  Future<Map<String, dynamic>> processEventCouponValidation(String sessionToken, Map<String, dynamic> queryParameters) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/coupons/validate/event-coupon'); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.post(uri,body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success"; 
+          output["message"] = responseData['message'] ?? "Event coupon validated successfully";
+          output["data"] = responseData["data"];
+
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while validation event coupon";
+        }
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while validation event coupon";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+    return output;
+  }
+
+  Future<Map<String, dynamic>> getInvoicePaymentDetails(String sessionToken, String invoiceNumber) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/sales/invoice-payment/$invoiceNumber'); // Change to Uri.https if available
+    
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+    
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["message"] = responseData['message'] ?? "Invoice payment details fetched successfully";
+          output["data"] = responseData["data"];
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching invoice payment details";
+        }
+
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData["detail"]['message'] ?? "An error occurred while fetching invoice payment details";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
     return output;
   }
 }

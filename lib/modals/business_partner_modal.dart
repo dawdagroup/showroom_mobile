@@ -14,7 +14,11 @@ class BusinessPartnerModal {
     dynamic requiresCustomerId;
     dynamic requiresFullPayment;
     dynamic autoPrintReceipt;
-    dynamic status;
+    dynamic requiresPartialPayment;
+    dynamic eligileForLoyalty;
+    dynamic isGlovo;
+    int id;
+    String status;
 
     BusinessPartnerModal({
         required this.name,
@@ -22,6 +26,10 @@ class BusinessPartnerModal {
         required this.requiresCustomerId,
         required this.requiresFullPayment,
         required this.autoPrintReceipt,
+        required this.requiresPartialPayment,
+        required this.eligileForLoyalty,
+        required this.isGlovo,
+        required this.id,
         required this.status,
     });
 
@@ -31,6 +39,10 @@ class BusinessPartnerModal {
         requiresCustomerId: json["requires_customer_id"],
         requiresFullPayment: json["requires_full_payment"],
         autoPrintReceipt: json["auto_print_receipt"],
+        requiresPartialPayment: json["requires_partial_payment"],
+        eligileForLoyalty: json["eligile_for_loyalty"],
+        isGlovo: json["is_glovo"],
+        id: json["id"],
         status: json["status"],
     );
 
@@ -40,6 +52,10 @@ class BusinessPartnerModal {
         "requires_customer_id": requiresCustomerId,
         "requires_full_payment": requiresFullPayment,
         "auto_print_receipt": autoPrintReceipt,
+        "requires_partial_payment": requiresPartialPayment,
+        "eligile_for_loyalty": eligileForLoyalty,
+        "is_glovo": isGlovo,
+        "id": id,
         "status": status,
     };
 }

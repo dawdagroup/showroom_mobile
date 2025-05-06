@@ -141,6 +141,7 @@ class _ProductSerialNumberConfirmationState extends State<ProductSerialNumberCon
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    
     return Obx(() =>
       Container(
         height: size.height * 0.5,

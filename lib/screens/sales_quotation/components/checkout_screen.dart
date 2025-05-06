@@ -19,6 +19,7 @@ import '../../../controllers/cart_controller.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/business_partner_modal.dart';
 import '../../../modals/customer_points_modal.dart';
+import '../../../modals/events_modal.dart';
 import '../../../modals/product_stock_modal.dart';
 import '../../../modals/transaction_modal.dart';
 import '../../../modals/warehouse_modal.dart';
@@ -51,7 +52,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   TextEditingController customerKraPinController = TextEditingController();
   TextEditingController customerBusinessPartnerController = TextEditingController();
 
-  int convertToInvoice = 1;
+  bool convertToInvoice = false;
   TextEditingController mpesaRefNumberController = TextEditingController();
   TextEditingController mpesaAmountPaidController = TextEditingController();
   TextEditingController creditCardAmountPaidController = TextEditingController();
@@ -60,10 +61,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   TextEditingController pointsAmountPaidController = TextEditingController();
   TextEditingController couponController = TextEditingController();
 
+
   TextEditingController installationChargesController = TextEditingController();
   TextEditingController extraMaterialsController = TextEditingController();
   TextEditingController shippingChargesController = TextEditingController();
   TextEditingController couponOtpController = TextEditingController();
+  TextEditingController eventCodeController = TextEditingController();
+  TextEditingController eventCouponController = TextEditingController();
   
   TextEditingController pointsRedemptionOTPController = TextEditingController();
 
@@ -86,6 +90,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final focusNode = FocusNode();
   List<BusinessPartnerModal> businessPartnersList = [];
   List<WarehouseModal> warehouseList = [];
+  List<EventsModal> eventsList = [];
+  BusinessPartnerModal? selectedBusinessPartner;
   
   List<FocusNode> listFocusNodes = List.generate(10,(index) => FocusNode(),);
   
@@ -103,14 +109,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   
   String? _cachedToken;
   DateTime? lastPressed;
-
-  // void onSubmitPressed() {
-  //   if (lastPressed == null ||
-  //       DateTime.now().difference(lastPressed!) > const Duration(seconds: 1)) { 
-  //         lastPressed = DateTime.now();
-  //     details.onStepContinue(); // or call your submission method directly
-  //   }
-  // }
 
   @override
   void initState() {
@@ -138,14 +136,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
           Map<String, dynamic> filters = {
             'phone_number': "+254${customerPhoneController.text}",
+            'status': "active",
           };
+          setState(() {
+            customer = null;
+            customerNameController.clear();
+            customerEmailController.clear();
+            customerAddressController.clear();
+          });
           var response = await apiService.filterCustomers(token, filters);
           try {
             if(response.isNotEmpty && response["status"] == "success"){
               var data = response["data"];
-              setState(() {
-                customer = customerModalFromJson(jsonEncode(data[0]));
-              });
+              setState(() { customer = customerModalFromJson(jsonEncode(data[0])); });
+
               customerNameController.text = data[0]["first_name"] + " " + data[0]["last_name"];
               customerEmailController.text = data[0]["email"];
               customerAddressController.text = data[0]["address"];
@@ -163,9 +167,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     var businessPartner = await _dbHelper.getBusinessPartners();
 
-
     if(businessPartner.isNotEmpty){
-      List<BusinessPartnerModal> newBusinessPartnersList = businessPartner.map((e) => businessPartnerModalFromJson(jsonEncode(e))).toList();
+      // print("Business Partners: ${businessPartner}");  
+      List<BusinessPartnerModal> newBusinessPartnersList = [];
+      for (var element in businessPartner) {
+        try {
+          newBusinessPartnersList.add(businessPartnerModalFromJson(jsonEncode(element)));
+        } catch (e) {
+          print("Error: ${e}");
+        }
+      }
       setState(() {
         businessPartnersList = newBusinessPartnersList;
       });
@@ -254,7 +265,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       totalDiscountPercentage += coupon!.discountPercentage;
     }
     
-    if(loyaltyClass != null){
+    if(loyaltyClass != null && selectedBusinessPartner != null && selectedBusinessPartner!.eligileForLoyalty == 1){
       totalDiscountPercentage += loyaltyClass!.discountPercentage;
     }
 
@@ -340,81 +351,179 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> redeemCoupons() async{
 
-    if(couponController.text.isEmpty){
+    if(_cachedToken == null){
+      dynamicMaster.displayError(context, "Session Expired!", "Please login to continue.");
+      return;
+    }
+
+    if(eventCodeController.text.isEmpty){
+      dynamicMaster.displayError(context, "Error", "Please select an event type");
+      return;
+    }
+
+    if(eventCouponController.text.isEmpty){
       dynamicMaster.displayError(context, "Error", "Please enter a coupon code");
       return;
     }
 
     dynamicMaster.displayLoadingModal(context);
 
-    var token = await sessionProvider.authProvider.token;
-    if(token == null){
+    final Map<String, dynamic> queryParameters = {
+      "event_code": eventCodeController.text,
+      "coupon_code": eventCouponController.text,
+    };
+
+    var response = await apiService.processEventCouponValidation(_cachedToken!, queryParameters);
+
+    Navigator.pop(context);
+
+    if(response.isNotEmpty && response["status"] == "success"){
+      dynamicMaster.displaySuccessMessage(context, response["message"]);
+
+      setState(() {
+        coupon = couponModalFromJson(jsonEncode(response["data"][0]["coupon"]));
+        isCouponOTPValidated = true;
+        couponOtpController.text = "${eventCodeController.text}-${eventCouponController.text}";
+        couponController.text = "${eventCodeController.text}-${eventCouponController.text}";
+      });
+
+      calculatePaymentBalance();
+    }else{
+      dynamicMaster.displayError(context, "Error", response["message"]);
+    }
+
+  }
+
+  Future<void> couponDialogue() async {
+    dynamicMaster.displayLoadingModal(context);
+
+    if(_cachedToken == null){
       Navigator.pop(context);
       dynamicMaster.displayError(context, "Session Expired!", "Please login to continue.");
       return;
     }
 
-    var response = await apiService.initiateCouponRedemption(token, couponController.text);
+    // get coupon events
+    final filters = {
+      "status": "active"
+    };
 
+    var response = await apiService.filterEvents(_cachedToken!, filters);
     Navigator.pop(context);
 
     if(response.isNotEmpty && response["status"] == "success"){
-      Size size = MediaQuery.of(context).size;
+      List<EventsModal> newEventsList = [];
 
-      IconButton closeButtonWidget = IconButton(
-        onPressed: (){
-          Navigator.of(context).pop();
-        },
-        icon: const Icon(
-          Icons.clear,
-          size: 30,
-        )
-      );
+      for (var event in response["data"]) {
+        newEventsList.add(eventsModalFromJson(jsonEncode(event)));
+      }
+      setState(() {
+        eventsList = newEventsList;
+      });
+      
+    }else{
+      dynamicMaster.displayError(context, "Error", response["message"]);
+      return;
+    }
+    
+    Size size = MediaQuery.of(context).size;
 
-      return showDialog(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState){
-              return Dialog(
-                child:  Container(
-                  padding: const EdgeInsets.all(20),
-                  height: size.height * 0.5,
-                  width: size.width * 0.5,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Image.asset(
-                              "assets/images/azone.png",
-                              height: 50,
-                              width: 50,
-                            ),
-                            closeButtonWidget
-                          ],
+    IconButton closeButtonWidget = IconButton( onPressed: (){ Navigator.of(context).pop();},icon: const Icon(Icons.clear, size: 30,));
+
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState){
+            return Dialog(
+              child:  Container(
+                padding: const EdgeInsets.all(20),
+                height: size.height * 0.6,
+                width: size.width * 0.5,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Image.asset(
+                            "assets/images/azone.png",
+                            height: 50,
+                            width: 50,
+                          ),
+                          closeButtonWidget
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.02),
+                      const Text(
+                        "Process Coupon Redemption",
+                        style: TextStyle(
+                          fontSize: 16, 
+                          fontWeight: FontWeight.bold,
                         ),
-                        SizedBox(height: size.height * 0.02),
-                        const Text("Coupon Redemption", style: TextStyle(color: kPrimaryColor, fontSize: 20, fontWeight: FontWeight.bold),),
-                        const Divider(height: 10, thickness: 1,),
-                        SizedBox(height: size.height * 0.02),
-                        SizedBox(
-                          height: size.height * 0.2,
+                      ),
+                      const Divider(height: 10, thickness: 1,),
+                      SizedBox(height: size.height * 0.02),
+                      SizedBox(
+                        height: size.height * 0.3,
+                        child: SingleChildScrollView(
                           child: Column(
                             children: [
-                              const Text(
-                                "Enter coupon OTp sent to the customer's phone number",
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold
+                              Row(
+                                children: [
+                                  const Text("Select Event Type:", style: TextStyle(fontWeight: FontWeight.bold),),
+                                  SizedBox(width: size.width * 0.01,),
+                                  const Text("*", style: TextStyle(color: Colors.red),),
+                                ],
+                              ),
+                              SizedBox(height: size.height * 0.01),
+                              Container(
+                                width: size.width * 0.8,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey,
+                                    width: 1.0
+                                  ),
+                                  borderRadius: BorderRadius.circular(5)
+                                ),
+                                child: DropdownButton<String>(
+                                  items: eventsList.map<DropdownMenuItem<String>>((EventsModal value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value.eventCode,
+                                      child: Text(value.eventName),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if(value != null){
+                                      setState(() {
+                                        eventCodeController.text = value;
+                                      });
+                                    }
+                                  },
+                                  value: eventCodeController.text.isEmpty ? null : eventCodeController.text,
+                                  isExpanded: true,
+                                  hint: const Text("Select Event Type"),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                  padding: const EdgeInsets.only(left: 9.0, right: 9.0),
+                                  underline: Container(),
                                 ),
                               ),
                               SizedBox(height: size.height * 0.02),
+                              Row(
+                                children: [
+                                  const Text("Enter Coupon Code:", style: TextStyle(fontWeight: FontWeight.bold),),
+                                  SizedBox(width: size.width * 0.01,),
+                                  const Text("*", style: TextStyle(color: Colors.red),),
+                                ],
+                              ),
+                              SizedBox(height: size.height * 0.01),
                               TextField(
                                 decoration: const InputDecoration(
-                                  labelText: 'Coupon OTP',
+                                  labelText: 'Coupon Code',
                                   border: OutlineInputBorder(
                                     borderSide: BorderSide(),
                                   ),
@@ -441,50 +550,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold
                                 ),
-                                controller: couponOtpController,
+                                controller: eventCouponController,
                               ),
-                              SizedBox(height: size.height * 0.02),
                             ],
                           ),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
+                      ),
+                      SizedBox(height: size.height * 0.03),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          ElevatedButton(
+                            onPressed: (){
+                              Navigator.of(context).pop();
+                            }, 
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.clear, color: Colors.white,),
+                                Text("Cancel", style: TextStyle(color: Colors.white),)
+                              ],
+                            )
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              // save the product details
+                              Navigator.of(context).pop();
+                              redeemCoupons();
+                            }, 
+                            style: ElevatedButton.styleFrom(backgroundColor: kSecondaryColor),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.save, color: Colors.white,),
+                                Text("Apply", style: TextStyle(color: Colors.white),)
+                              ],
+                            )
+                          )
+                        ],
+                      )
+                    ]
+                  )
+                )
+              )
+            );
+          }
+        );
+      }
+    );
 
-                                validateCouponOtp();
-                              },
-                              style: ButtonStyle(
-                                backgroundColor: WidgetStateProperty.all(kPrimaryColor),
-                              ),
-                              child: const Text("Validate", style: TextStyle(color: Colors.white),),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              style: ButtonStyle(
-                                backgroundColor: WidgetStateProperty.all(Colors.red),
-                              ),
-                              child: const Text("Cancel", style: TextStyle(color: Colors.white),),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
-          );
-        }
-      );
-
-    }else{
-      dynamicMaster.displayError(context, "Error", response["message"]);
-    }
   }
 
   Future<void> validateStep() async {
@@ -536,13 +649,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           listFocusNodes[i].unfocus();
         }
       }
+      calculatePaymentBalance();
       setState(() {
         stepErrors[0] = false;
         submitFormState = true;
         _currentStep++;
       });
     }else if(_currentStep == 1){
-      if(convertToInvoice == 0){
+      if(convertToInvoice == true){
         if(mpesaRefNumberController.text.isNotEmpty && mpesaAmountPaidController.text.isEmpty){
           setState(() {
             stepErrors[1] = true;
@@ -603,7 +717,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _currentStep++;
       });
     }else if(_currentStep == getSteps(size).length - 1){
-      if(convertToInvoice == 0){
+      if(convertToInvoice == true){
         bool toSubmit = true;
         
         for (var product in controller.products.keys.toList()) {
@@ -735,7 +849,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       "customerID": customerIDController.text,
       "customerKraPin": customerKraPinController.text,
       "customerBusinessPartner": customerBusinessPartnerController.text,
-      "convertToInvoice": convertToInvoice,
+      "convertToInvoice": convertToInvoice == true ? 0 : 1,
       "mpesaRefNumber": mpesaRefNumberController.text,
       "mpesaAmountPaid": mpesaAmountPaidController.text,
       "creditCardAmountPaid": creditCardAmountPaidController.text,
@@ -1018,6 +1132,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   fontWeight: FontWeight.bold
                 ),
                 controller: customerNameController,
+                enabled: customer != null ? false : true,
               ),
               SizedBox(height: size.height * 0.02,),
               TextField(
@@ -1051,6 +1166,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   )
                 ),
                 controller: customerEmailController,
+                enabled: customer != null ? false : true,
               ),
               SizedBox(height: size.height * 0.02,),
               TextField(
@@ -1169,9 +1285,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   }).toList(),
                   onChanged: (value) {
                     if(value != null){
+                      BusinessPartnerModal businessPartner = businessPartnersList.firstWhere((element) => element.code == value);
+
                       setState(() {
                         isBusinessPartnerrHasErrors = false;
                         customerBusinessPartnerController.text = value;
+                        selectedBusinessPartner = businessPartner;
                       });
                     }
                   },
@@ -1219,21 +1338,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     activeFgColor: Colors.white,
                     inactiveBgColor: Colors.grey,
                     inactiveFgColor: Colors.white,
-                    initialLabelIndex: convertToInvoice,
+                    initialLabelIndex: convertToInvoice == true ? 0 : 1,
                     totalSwitches: 2,
                     labels: const ['YES', 'No'],
                     radiusStyle: true,
                     changeOnTap: true,
                     onToggle: (index) {
                       setState(() {
-                        convertToInvoice = index!;
+                        convertToInvoice = index == 0 ? true : false;
                       });
                     },
                   ),
                 ],
               ),
               SizedBox(height: size.height * 0.02,),
-              convertToInvoice == 1 ?
+              convertToInvoice == false ?
               Container() :
               Column(
                 children: [
@@ -1651,6 +1770,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     controller: shippingChargesController,
+                    readOnly: true,
                     onChanged: (value) {
                       calculatePaymentBalance();
                     },
@@ -1696,7 +1816,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       SizedBox(width: size.width * 0.02,),
                       ElevatedButton(
                         onPressed: () {
-                          redeemCoupons();
+                          // redeemCoupons();
+                          couponDialogue();
                         },
                         style: ButtonStyle(
                           backgroundColor: WidgetStateProperty.all(kPrimaryColor),
@@ -1722,7 +1843,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Text("Loyalty Discount (%):", style: TextStyle(fontWeight: FontWeight.bold), ),
                       Text(
-                        loyaltyClass == null ? "0.00" : loyaltyClass!.discountPercentage.toString(),
+                        loyaltyClass != null && selectedBusinessPartner != null && selectedBusinessPartner!.eligileForLoyalty == 1 ? loyaltyClass!.discountPercentage.toString() : "0.00" ,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), 
                       ),
                     ],
@@ -1783,7 +1904,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       state: stepErrors[2] == true ? StepState.error : _currentStep > 2 ? StepState.complete : StepState.indexed,
       isActive: _currentStep == 2,
       title: _currentStep == 2 ? const Text("Summary") : const Text(""),
-      content: convertToInvoice == 1 ? const SizedBox() : const ProductSerialNumberConfirmation()
+      content: convertToInvoice == false ? const SizedBox() : const ProductSerialNumberConfirmation()
     )
   ];
 

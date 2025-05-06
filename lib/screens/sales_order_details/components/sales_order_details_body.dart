@@ -283,7 +283,7 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
   Future<void> processPrintRequest(int layoutId) async {
 
     if (salesOrderDetailsObj == null) {
-      dynamicMaster.displayError(context, "Error", "No invoice details found.");
+      dynamicMaster.displayError(context, "Error", "No sales order details found.");
       return;
     }
 
