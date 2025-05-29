@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+
 import 'package:get/get.dart';
 
 import '../db/database_helper.dart';
@@ -106,4 +106,29 @@ class StockTransferController extends GetxController {
     update();
   }
 
+  // get cart details
+  Future<Map<String, List<String>>> getCartDetails() async {
+    // check if goods issue number is set
+    if (stockTransferNumber.value.isEmpty) {
+      return {};
+    }
+
+    // get or create goods issue header
+    var giHeader = await _dbHelper.getOrCreateStockTransferScan(stockTransferNumber.value);
+
+    var goodsIssueProductSerialNumbers = await _dbHelper.getStockTransferProducts(giHeader);
+
+    Map<String, List<String>> cartDetails = {};
+
+    if (goodsIssueProductSerialNumbers.isNotEmpty) {
+      for (var product in goodsIssueProductSerialNumbers) {
+
+        cartDetails.putIfAbsent(product['item_code'], () => <String>[]);
+        cartDetails[product['item_code']]!.add(product['serial_number']);
+      }
+    }
+
+    return cartDetails;
+
+  }
 }

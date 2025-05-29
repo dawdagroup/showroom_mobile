@@ -55,7 +55,7 @@ class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetails
 
 
       if(widget.salesQuotationLineItemModal.itemPictureName == null || widget.salesQuotationLineItemModal.itemPictureName == "") {
-        setState(() { isLoading = false; productImagePath = "assets/images/blank_image.png"; });
+        setState(() { isLoading = false; });
         return;
       }
 

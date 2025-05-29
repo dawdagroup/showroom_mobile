@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../../../components/dynamic_widgets.dart';
 import '../../../components/rounded_buttons.dart';
@@ -581,6 +582,35 @@ class _SalesQuotationFormState extends State<SalesQuotationForm> with WidgetsBin
     return true;
   }
 
+  // get the product image
+  Future<String?> getProductImage(String? itemPictureName) async {
+    // setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        return null;
+      }
+
+
+      if(itemPictureName == null || itemPictureName == "") {
+        return null;
+      }
+
+      var response = await apiService.getProductImage(token, itemPictureName);
+
+      if(response["status"] == "success"){
+        return response["file_path"];
+      }else{
+        return null;
+      }
+    } catch (e) {
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -596,6 +626,7 @@ class _SalesQuotationFormState extends State<SalesQuotationForm> with WidgetsBin
                 itemCount: cartController.products.length,
                 itemBuilder: (context, index){
                   ProductModal product = cartController.products.keys.toList()[index];
+
                   
                   return Container(
                     height: size.height * 0.43,
@@ -616,7 +647,8 @@ class _SalesQuotationFormState extends State<SalesQuotationForm> with WidgetsBin
                     child: Stack(
                       children: [
                         Positioned(
-                          child: Container(
+                          child: 
+                            Container(
                             height: size.height * 0.3,
                             width: size.width * 0.3,
                             decoration: BoxDecoration(

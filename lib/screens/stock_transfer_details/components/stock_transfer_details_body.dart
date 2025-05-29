@@ -82,64 +82,65 @@ class _StockTransferDetailsBodyState extends State<StockTransferDetailsBody> {
     setState(() { isLoading = false; });
   }
 
-  Widget _buildActionButton(){
-    Size size = MediaQuery.of(context).size;
-    // check if the from warehouse code is in the showroom warehouse list
-    bool isFromWarehouseInShowroom = showroomWarehouseList.any((warehouse) => warehouse.code == stockTransferDetailsModal!.fromWarehouseCode);
-
-    // check if the to warehouse code is in the showroom warehouse list
-    bool isToWarehouseInShowroom = showroomWarehouseList.any((warehouse) => warehouse.code == stockTransferDetailsModal!.toWarehouseCode);
-
-    if (stockTransferDetailsModal!.approvalStatus == "approved" && stockTransferDetailsModal!.status == "active") {   
-
-      if (isToWarehouseInShowroom && stockTransferDetailsModal!.goodsIssueNumber != null) {
-        return RoundedButton(btnText: "Receive Goods", press: () {
-          Navigator.pushNamed(context, "/receive_goods", arguments: stockTransferDetailsModal!.transferNumber.toString());
-        },  btnColor: kSecondaryColor, textColor: Colors.white );
-      } else if(isToWarehouseInShowroom && stockTransferDetailsModal!.goodsIssueNumber == null) {
-        return SizedBox(
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(left: size.width * 0.07),
-                    child: const Text("Comments: ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
-                  ),
-                ],
-              ),
-              const Text("Stock Transfer is approved pending goods issue", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.green),),
-            ],
-          ),
-        );
-      }else if (isToWarehouseInShowroom && stockTransferDetailsModal!.goodsIssueNumber == null) {
-        return RoundedButton(btnText: "Receive Goods", press: () {
-          Navigator.pushNamed(context, "/receive_goods", arguments: stockTransferDetailsModal!.transferNumber.toString());
-        },  btnColor: kSecondaryColor, textColor: Colors.white );
-      }else if (isFromWarehouseInShowroom && stockTransferDetailsModal!.goodsIssueNumber == null) {
-
-        return RoundedButton(btnText: "Create Goods Issue", press: () {
-          Navigator.pushNamed(context, "/create_goods_issue", arguments:  stockTransferDetailsModal!.transferNumber.toString());
-        },  btnColor: kSecondaryColor, textColor: Colors.white );
-      }
-
-    }
-
+  Widget comment(String text, Color color) {
+    final size = MediaQuery.of(context).size;
     return SizedBox(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(left: size.width * 0.07),
-                child: const Text("Comments: ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
-              ),
-            ],
+          Padding(
+            padding: EdgeInsets.only(left: size.width * 0.07),
+            child: const Text("Comments: ",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
           ),
-          const Text("Stock Transfer is not approved or inactive", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red),),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w500, color: color)),
         ],
       ),
     );
+  }
+
+  Widget _buildActionButton() {
+    final details = stockTransferDetailsModal!;
+    final fromInShowroom = showroomWarehouseList.any((w) => w.code == details.fromWarehouseCode);
+    final toInShowroom = showroomWarehouseList.any((w) => w.code == details.toWarehouseCode);
+    final isApprovedActive = details.approvalStatus == "approved" && details.status == "active";
+
+
+    if (!isApprovedActive) {
+      return comment("Stock Transfer is not approved or inactive", Colors.red);
+    }
+
+    // Approved & active
+    if (toInShowroom) {
+      if (details.goodsIssueNumber != null) {
+        return RoundedButton(
+          btnText: "Receive Goods",
+          press: () => Navigator.pushNamed(
+              context, "/receive_goods",
+              arguments: details.goodsIssueNumber.toString()),
+          btnColor: kSecondaryColor,
+          textColor: Colors.white,
+        );
+      } else {
+        return comment("Stock Transfer is approved pending goods issue", Colors.green);
+      }
+    }
+
+    if (fromInShowroom && details.goodsIssueNumber == null) {
+      return RoundedButton(
+        btnText: "Create Goods Issue",
+        press: () => Navigator.pushNamed(
+            context, "/create_goods_issue",
+            arguments: details.transferNumber.toString()),
+        btnColor: kSecondaryColor,
+        textColor: Colors.white,
+      );
+    }
+
+    // Fallback
+    return comment("No actions available for this transfer", Colors.grey);
   }
 
   @override
@@ -248,15 +249,43 @@ class _StockTransferDetailsBodyState extends State<StockTransferDetailsBody> {
             SizedBox(height: size.height * 0.02,),
             SizedBox(
               height: size.height * 0.53,
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: stockTransferDetailsModal!.products.length,
-                itemBuilder: (context, index) {
-                  return StockTransferProductCard(
-                    product: stockTransferDetailsModal!.products[index],
-                  );
-                },
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () { 
+                          // printInvoiceDialoge(); 
+                        }, 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Icon(Icons.print),
+                            Text("Print Goods Issue"),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: size.height * 0.45,
+                    width: size.width,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: stockTransferDetailsModal!.products.length,
+                      itemBuilder: (context, index) {
+                        return StockTransferProductCard(
+                          product: stockTransferDetailsModal!.products[index],
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: size.height * 0.02,),

@@ -23,7 +23,7 @@ class GoodsIssueCreateBody extends StatefulWidget {
 }
 
 class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
-  late final StockTransferController stockTransferController;
+  final StockTransferController stockTransferController = Get.put(StockTransferController());
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -37,7 +37,8 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    stockTransferController = Get.put(StockTransferController());
+
+    stockTransferController.stockTransferNumber.value = widget.transferNumber;
   }
   
   @override
@@ -46,6 +47,8 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
     getStockTransferDetails();
+
+    stockTransferController.loadScans();
   }
   
   Future<void> getStockTransferDetails() async {
@@ -71,6 +74,50 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
       dynamicMaster.displayError(context, "Error", e.toString());
     }
     setState(() { isLoading = false; });
+  }
+
+  Future<void> submitGoodsIssue() async {
+    try {
+      dynamicMaster.displayLoadingModal(context);
+
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        Navigator.pop(context);
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+      var cartDetails = await stockTransferController.getCartDetails();
+
+      // Ensure cart details is not null
+      if (cartDetails.isEmpty) {
+        Navigator.pop(context);
+        dynamicMaster.displayError(context, "Error", "No scanned serials found.");
+        setState(() { isLoading = false; });
+        return;
+      }
+      
+      final Map<String, dynamic> queryParameters = {
+        "productSerial": cartDetails,
+        "stockTransferNumber": widget.transferNumber,
+      };
+
+      var response = await apiService.processStockTransferGoodsIssue(token, queryParameters);
+
+      Navigator.pop(context);
+
+      if(response["status"] == "success"){
+        dynamicMaster.displaySuccessMessage(context, response["message"]);
+        Get.back();
+      }else{
+        dynamicMaster.displayError(context, "Error", response["message"]);
+      }
+    } catch (e) {
+      dynamicMaster.displayError(context, "Error", e.toString());
+    }
   }
 
   @override
@@ -135,11 +182,12 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
             RoundedButton(
               btnText: "Submit", 
               press: (){
-                // if(goodsIssueController.scannedSerials.isEmpty){
-                //   dynamicMaster.displayError(context, "Error", "No scanned serials found");
-                // }else{
-                //   submitGoodsIssue();
-                // }
+                if(stockTransferController.scannedSerials.isEmpty){
+                  dynamicMaster.displayError(context, "Error", "No scanned serials found");
+                  return;
+                }
+                submitGoodsIssue();
+                
               }, 
               btnColor: kSecondaryColor, 
               textColor: kPrimaryLightColor

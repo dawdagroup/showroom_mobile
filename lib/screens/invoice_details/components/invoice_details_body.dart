@@ -366,6 +366,32 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
     }
   }
 
+  Future<void> processInvoiceFiscalization() async {
+    setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+      var response = await apiService.fiscalizeInvoice(token, invoiceDetailsObj!.invoiceNumber.toString());
+
+      if (response["status"] == "success") {
+        dynamicMaster.displaySuccessMessage(context, "Invoice fiscalized successfully.");
+        fetchInvoiceDetails();
+      } else {
+        dynamicMaster.displayError(context, "Error", response["message"]);
+      }
+    } catch (e) {
+      dynamicMaster.displayError(context, "Error", "An error occurred: $e");
+    }
+    setState(() { isLoading = false; });
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -478,7 +504,9 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       ElevatedButton(
-                        onPressed: () {}, 
+                        onPressed: () {
+
+                        }, 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
@@ -486,8 +514,8 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.add),
-                            Text("Add Item"),
+                            Icon(Icons.receipt_long_outlined),
+                            Text("Fiscalize Invoice"),
                           ],
                         )
                       ),

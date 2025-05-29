@@ -5,6 +5,8 @@ import '../modals/invoice_details_modal.dart';
 import '../modals/product_serial_number_modal.dart';
 import '../modals/purchase_order_details_modal.dart';
 import '../modals/sales_order_details_modal.dart';
+import '../modals/stock_transfer_details_modal.dart';
+import '../screens/goods_issue/components/goods_issue_create_product_screen.dart';
 import '../screens/goods_issue/components/goods_issue_create_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/invoice/invoice_screen.dart';
@@ -14,6 +16,7 @@ import '../screens/password_reset/components/password_otp_verification_screen.da
 import '../screens/password_reset/components/password_update_screen.dart';
 import '../screens/password_reset/password_reset_screen.dart';
 import '../screens/pdf_view/pdf_view_screen.dart';
+import '../screens/physical_stock_count/physical_stock_count_screen.dart';
 import '../screens/product_details/product_details_screen.dart';
 import '../screens/purchase_receipt/components/goods_issue_product_screen.dart';
 import '../screens/purchase_receipt/components/purchase_order_product_screen.dart';
@@ -134,18 +137,17 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => const StockTransferScreen());
       case '/pdf_view':
         final args = settings.arguments as Map<String, dynamic>;
-        return MaterialPageRoute(builder: (_) => PdfViewerScreen(
-          documentType: args["documentType"] as String,
-          documentNumber: args["documentNumber"] as String,
-          printerTypeId: args["printerTypeId"] as int,
-          layoutId: args["layoutId"] as int,
-          showroomId: args["showroomId"] as String,
-        ));
+        return MaterialPageRoute(builder: (_) => PdfViewerScreen( documentType: args["documentType"] as String, documentNumber: args["documentNumber"] as String, printerTypeId: args["printerTypeId"] as int, layoutId: args["layoutId"] as int, showroomId: args["showroomId"] as String, ));
       case '/stock_transfer_form':
         return MaterialPageRoute(builder: (_) => const StockTransferForm());
       case '/stock_transfer_details':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => StcokTransferDetailsScreen(strockTransferNumber: args as String,));
+      case '/goods_issue_create_product':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => GoodsIssueCreateProductScreen(product: args as StockTransferProduct,));
+      case '/physical_stock_count':
+        return MaterialPageRoute(builder: (_) => const PhysicalStockCountScreen());
       default:
         return _errorRoute();
     }

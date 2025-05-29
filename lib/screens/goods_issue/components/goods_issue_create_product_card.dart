@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../components/dynamic_widgets.dart';
 import '../../../constant/constants.dart';
+import '../../../controllers/stock_transfer_controller.dart';
 import '../../../modals/stock_transfer_details_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
@@ -18,6 +20,7 @@ class GoodsIssueCreateProductCard extends StatefulWidget {
 }
 
 class _GoodsIssueCreateProductCardState extends State<GoodsIssueCreateProductCard> {
+  final StockTransferController stockTransferController = Get.find<StockTransferController>();
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
@@ -72,7 +75,7 @@ class _GoodsIssueCreateProductCardState extends State<GoodsIssueCreateProductCar
     Size size = MediaQuery.of(context).size;
     return InkWell(
       onTap:() {
-        // Navigator.pushNamed(context, '/complaint_details', arguments: listOfAftersaleRequestModal[index].complaintNo);
+        Navigator.pushNamed(context, '/goods_issue_create_product', arguments: widget.product);
       },
       child: Container(
         padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.02, right: size.width * 0.02),
@@ -121,6 +124,20 @@ class _GoodsIssueCreateProductCardState extends State<GoodsIssueCreateProductCar
                   Text("Brand: ${widget.product.itemBrand}" , softWrap: true, style: const TextStyle(fontSize: 14, color: Colors.white),),
                   SizedBox(height: size.height * 0.01,),
                   Text("Qty: ${widget.product.quantity.toString()}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),),
+                  SizedBox(height: size.height * 0.01,),
+                  Obx(() {
+                    // Calculate the current count from your reactive map.
+                    final scannedCount = stockTransferController.scannedSerials[widget.product.itemCode]?.length ?? 0;
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 10),
+                        Text("Scanned Qty: $scannedCount", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                        Text("Pending Qty: ${widget.product.quantity - scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                      ],
+                    );
+                  })
+
                 ],
               ),
             )

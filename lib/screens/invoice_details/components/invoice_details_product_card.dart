@@ -55,7 +55,7 @@ class _InvoiceDetailsProductCardState extends State<InvoiceDetailsProductCard> {
 
 
       if(widget.invoiceItem.itemPictureName == null || widget.invoiceItem.itemPictureName == "") {
-        setState(() { isLoading = false; productImagePath = "assets/images/blank_image.png"; });
+        setState(() { isLoading = false;});
         return;
       }
 

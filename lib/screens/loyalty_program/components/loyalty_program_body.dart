@@ -179,6 +179,12 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
   }
 
   Future<void> submitCustomer(String firstName, String middleName, String lastName, String phoneNumber, String email, String address) async {
+
+    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
+      dynamicMaster.displayError(context, "Error", "Please enter a valid email address");
+      return;
+    }
+
     // Add customer logic here
     try {
       var token = await sessionProvider.authProvider.token;
