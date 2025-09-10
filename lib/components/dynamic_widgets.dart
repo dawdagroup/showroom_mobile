@@ -8,6 +8,8 @@ import '../constant/constants.dart';
 import '../providers/session_provider.dart';
 
 
+enum _TopMenuOption { home, settings, logout }
+
 class DynamicMaster {
   
   Future<dynamic> displayError(BuildContext context, String errorHeader, String message) {
@@ -161,7 +163,7 @@ class DynamicMaster {
   }
 
   
-  AppBar applicationBar(ThemeData theme, BuildContext context) {
+  AppBar applicationBarBk(ThemeData theme, BuildContext context, GlobalKey<ScaffoldState> scaffoldKey,) {
     final scaffoldKey = GlobalKey<ScaffoldState>();
 
     Future<bool> goToLogin(BuildContext context) {
@@ -171,15 +173,19 @@ class DynamicMaster {
       return Navigator.of(context).pushReplacementNamed('/login').then((_) => false);
     }
     
-
     final menuBtn = IconButton(
       color: theme.colorScheme.primary,
       icon: const Icon(FontAwesomeIcons.bars),
-      onPressed: () {
-        scaffoldKey.currentState!.openDrawer();
-        // Scaffold.of(context).openDrawer();
-      },
+      onPressed: () => scaffoldKey.currentState!.openDrawer(),
     );
+    // final menuBtn = IconButton(
+    //   color: theme.colorScheme.primary,
+    //   icon: const Icon(FontAwesomeIcons.bars),
+    //   onPressed: () {
+    //     scaffoldKey.currentState!.openDrawer();
+    //     // Scaffold.of(context).openDrawer();
+    //   },
+    // );
     final signOutBtn = IconButton(
       icon: const Icon(FontAwesomeIcons.rightFromBracket),
       color: theme.colorScheme.primary,
@@ -216,6 +222,98 @@ class DynamicMaster {
     );
   }
 
+  AppBar applicationBar(ThemeData theme, BuildContext context, GlobalKey<ScaffoldState> scaffoldKey) {
+
+    Future<bool> goToLogin(BuildContext context) {
+
+      Provider.of<SessionProvider>(context, listen: false).authProvider.logout();
+
+      return Navigator.of(context).pushReplacementNamed('/login').then((_) => false);
+    }
+
+    final title = Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Hero(
+              tag: Constants.logoTag,
+              child: Image.asset(
+                'assets/images/azone.png',
+                filterQuality: FilterQuality.high,
+                height: 30,
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+        ],
+      ),
+    );
+
+    final signOutBtn = IconButton(
+      icon: const Icon(FontAwesomeIcons.rightFromBracket),
+      color: theme.colorScheme.primary,
+      onPressed: () => goToLogin(context),
+    );
+    
+    return AppBar(
+      leading: PopupMenuButton<_TopMenuOption>(
+        icon: Icon(FontAwesomeIcons.bars, color: theme.colorScheme.primary),
+        onSelected: (opt) {
+          switch (opt) {
+            case _TopMenuOption.home:
+              Navigator.pushNamed(context, '/home');
+              break;
+            case _TopMenuOption.settings:
+              Navigator.pushNamed(context, '/settings');
+              break;
+            case _TopMenuOption.logout:
+              Provider.of<SessionProvider>(context, listen: false)
+                  .authProvider
+                  .logout();
+              Navigator.pushReplacementNamed(context, '/login');
+              break;
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(
+            value: _TopMenuOption.home,
+            child: Text('Home'),
+          ),
+          const PopupMenuItem(
+            value: _TopMenuOption.settings,
+            child: Text('Settings'),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _TopMenuOption.logout,
+            child: Text('Sign Out'),
+          ),
+        ],
+      ),
+      title: title,
+      actions: [ signOutBtn],
+      backgroundColor: Colors.white,
+      elevation: 0,
+    );
+  }
+
+  Widget buildSideBar(BuildContext context,) {
+    return Drawer(
+      child: ListView(
+        children: [
+          const DrawerHeader(child: Text("Menu")),
+          ListTile(
+            leading: const Icon(Icons.home),
+            title: const Text("Home"),
+            onTap: () => Navigator.pushNamed(context, '/home'),
+          ),
+          // … more items …
+        ],
+      ),
+    );
+  }
 
 
 }

@@ -5,6 +5,7 @@ import 'package:intl_phone_field/phone_number.dart';
 
 import 'package:dropdown_search/dropdown_search.dart';
 
+import '../../../config/config.dart';
 import '../../../services/api_service.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../providers/session_provider.dart';
@@ -34,6 +35,7 @@ class ComplaintRegistrationScreen extends StatefulWidget {
 }
 
 class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
@@ -333,7 +335,7 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
         state: stepErrors[0] == true ? StepState.error : _currentStep > 0 ? StepState.complete : StepState.indexed,
         isActive: _currentStep == 0,
         title: _currentStep == 0 ? const Text("Customer Info") : const SizedBox(),
-        content: Container(
+        content: SizedBox(
           height: size.height * 0.6,
           width: size.width,
           child: SingleChildScrollView(
@@ -361,12 +363,19 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
                     labelText: 'Phone Number',
                     border: OutlineInputBorder(),
                   ),
-                  initialCountryCode: 'KE',
+                  initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                   controller: customerContactNumberInputController,
                   onChanged: (phone) {},
                   disableLengthCheck: true,
                   validator: (PhoneNumber? value) {
             
+                    if(Config.releaseRegion == "UGANDA"){
+                      if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                        return 'Please enter a valid Ugandan phone number';
+                      }
+                      return null;
+                    }
+                    
                     if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
                       return 'Please enter a valid Kenyan phone number';
                     }
@@ -480,7 +489,7 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
                 SizedBox(height: size.height * 0.01,),
                 Row(
                   children: [
-                    const Text("Town:", style: TextStyle(fontWeight: FontWeight.bold),),
+                    const Text("Area:", style: TextStyle(fontWeight: FontWeight.bold),),
                     SizedBox(width: size.width * 0.009,),
                     const Text("*", style: TextStyle(color: kRedColor),),
                   ],
@@ -498,7 +507,7 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
                     compareFn: (item, sItem) => item.name == sItem.name,
                     dropdownDecoratorProps:  DropDownDecoratorProps(
                       dropdownSearchDecoration: InputDecoration(
-                        labelText: 'Select Town',
+                        labelText: 'Select Area',
                         labelStyle: const TextStyle(color: kPrimaryColor),
                         filled: true,
                         fillColor: kPrimaryLightColor,
@@ -852,7 +861,8 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
     Size size = MediaQuery.of(context).size;
     ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: Container(
         height: size.height,
         width: size.width,

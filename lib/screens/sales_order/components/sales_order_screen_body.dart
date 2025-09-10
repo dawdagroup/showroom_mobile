@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:showroom_manager/components/rounded_buttons.dart';
 import 'package:showroom_manager/constant/constants.dart';
+import '../../../config/config.dart';
 import '../../../providers/session_provider.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../services/api_service.dart';
@@ -93,7 +94,6 @@ class _SalesOrderScreenBodyState extends State<SalesOrderScreenBody> {
         dynamicMaster.displayError(context, "Error", response["message"]);
       }
     } catch (e) {
-      print('Error fetching sales orders: $e');
       dynamicMaster.displayError(context, "Error", "An error occurred while fetching sales orders.");
     }
     setState(() { isLoading = false; });
@@ -108,7 +108,7 @@ class _SalesOrderScreenBodyState extends State<SalesOrderScreenBody> {
       margin: EdgeInsets.symmetric(horizontal: size.width * 0.05),
       child: Column(
         children: [
-          const Text('Sales Order Screen', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
+          const Text('List  of sales Orders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
           SizedBox(height: size.height * 0.02,),
           Row(
             children: [
@@ -145,26 +145,76 @@ class _SalesOrderScreenBodyState extends State<SalesOrderScreenBody> {
             ListView.builder(
               itemCount: salesOrderList.length,
               itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Card(
-                    elevation: 5,
-                    child: ListTile(
-                      title: Text(salesOrderList[index].saleOrderNumber.toString()),
-                      subtitle: Text(salesOrderList[index].customerName),
-                      trailing: Column(
-                        children: [
-                          Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(double.parse(salesOrderList[index].docTotal.toString()))),
-                          const SizedBox(height: 5),
-                          Text(DateFormat("d/MM/y").format(DateTime.parse(salesOrderList[index].documentDate.toString()))),
-                        ],
+                
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/sales_order_details', arguments: salesOrderList[index].saleOrderNumber.toString());
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Card(
+                        elevation: 5,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  const Text("Order Date: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(DateFormat("d-MM-y").format(DateTime.parse(salesOrderList[index].documentDate.toString())), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Order Number: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(salesOrderList[index].saleOrderNumber.toString(), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              SizedBox(
+                                width: size.width,
+                                child: Wrap(
+                                  spacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "BP Name: ",
+                                      style: TextStyle(
+                                        color: kPrimaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      salesOrderList[index].cardName,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Row(
+                                children: [
+                                  const Text("Customer Name: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(salesOrderList[index].customerName ?? "N/A", style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Phone Number: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(salesOrderList[index].customerPhone ?? "N/A", style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Amount: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(double.parse(salesOrderList[index].docTotal.toString())), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
                       ),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/sales_order_details', arguments: salesOrderList[index].saleOrderNumber.toString());
-                      },
                     ),
-                  ),
-                );
+                  );
               },
             )
           ),

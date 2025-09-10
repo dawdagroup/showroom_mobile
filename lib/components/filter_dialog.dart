@@ -1,3 +1,4 @@
+import '../config/config.dart';
 import 'filter_params.dart';
 import 'rounded_buttons.dart';
 import 'package:flutter/material.dart';
@@ -182,12 +183,19 @@ class _FilterDialogState extends State<FilterDialog> {
                         labelText: 'Phone Number',
                         border: OutlineInputBorder(),
                       ),
-                      initialCountryCode: 'KE',
+                      initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                       controller: phoneNumberInputController,
                       onChanged: (phone) {},
                       disableLengthCheck: true,
                       validator: (PhoneNumber? value) {
 
+                        if(Config.releaseRegion == "UGANDA"){
+                          if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                            return 'Please enter a valid Ugandan phone number';
+                          }
+                          return null;
+                        }
+                        
                         if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
                           return 'Please enter a valid Kenyan phone number';
                         }

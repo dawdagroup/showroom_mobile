@@ -14,14 +14,15 @@ import '../../../services/api_service.dart';
 
 class SalesOrderDeliveryCard extends StatefulWidget {
   final SalesOrderDetailsLineItem salesOrderDetailsLineItem;
-  const SalesOrderDeliveryCard({super.key, required this.salesOrderDetailsLineItem});
+  final String salesOrderNumber;
+  const SalesOrderDeliveryCard({super.key, required this.salesOrderDetailsLineItem, required this.salesOrderNumber});
 
   @override
   State<SalesOrderDeliveryCard> createState() => _SalesOrderDeliveryCardState();
 }
 
 class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
-  final SalesOrderController salesOrderController = Get.find<SalesOrderController>();
+  late final SalesOrderController salesOrderController;
   
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -29,11 +30,14 @@ class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
   bool isLoading = false;
 
   List<ProductSerialNumberModal> serialNumberList = [];
-  
+
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+    // Get the SalesOrderController with the sales order number tag
+    salesOrderController = Get.find<SalesOrderController>(tag: widget.salesOrderNumber);
   }
   
   @override
@@ -93,7 +97,11 @@ class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
 
     if(serialsResults && serialNumberList.isNotEmpty){
       
-      Navigator.pushNamed(context, '/sales_order_delivery_product_screen', arguments: {'salesOrderDetailsLineItem': widget.salesOrderDetailsLineItem,'serialNumberList': serialNumberList,});
+      Navigator.pushNamed(context, '/sales_order_delivery_product_screen', arguments: {
+        'salesOrderDetailsLineItem': widget.salesOrderDetailsLineItem,
+        'serialNumberList': serialNumberList,
+        'salesOrderNumber': widget.salesOrderNumber,
+      });
     }
 
   }
@@ -103,6 +111,10 @@ class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
     Size size = MediaQuery.of(context).size;
     return InkWell(
       onTap: (){
+        if(widget.salesOrderDetailsLineItem.itemLineStatus == "C"){
+          dynamicMaster.displayError(context, "Error", "This item is already completed and cannot be scanned.");
+          return;
+        }
         processNextPage();
       },
       child: Container(
@@ -137,6 +149,8 @@ class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
                       SizedBox(height: size.height * 0.01,),
                       Text("Qty: ${widget.salesOrderDetailsLineItem.itemOpenQuantity.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                       SizedBox(height: size.height * 0.01,),
+                      widget.salesOrderDetailsLineItem.itemLineStatus == "C" ? dynamicMaster.showBadge("Closed", Colors.greenAccent)  : dynamicMaster.showBadge("Pending", Colors.yellowAccent),
+                      SizedBox(height: size.height * 0.01,),
                       Obx(() {
                         // Calculate the current count from your reactive map.
                         final scannedCount = salesOrderController.scannedSerials[widget.salesOrderDetailsLineItem.itemCode]?.length ?? 0;
@@ -144,8 +158,8 @@ class _SalesOrderDeliveryCardState extends State<SalesOrderDeliveryCard> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const SizedBox(width: 10),
-                            Text("Scanned Qty: $scannedCount", style: const TextStyle(fontSize: 14, color: Colors.white)),
-                            Text("Pending Qty: ${widget.salesOrderDetailsLineItem.itemOpenQuantity - scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                            Text("Scanned Qty: ${widget.salesOrderDetailsLineItem.itemLineStatus == "C" ? 0 : scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                            Text("Pending Qty: ${widget.salesOrderDetailsLineItem.itemLineStatus == "C" ? 0 : widget.salesOrderDetailsLineItem.itemOpenQuantity - scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
                           ],
                         );
                       })

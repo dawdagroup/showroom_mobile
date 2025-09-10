@@ -13,7 +13,8 @@ import '../../../services/api_service.dart';
 
 class InvoiceDeliveryCard extends StatefulWidget {
   final InvoiceItem invoiceItem;
-  const InvoiceDeliveryCard({super.key, required this.invoiceItem});
+  final String invoiceNumber;
+  const InvoiceDeliveryCard({super.key, required this.invoiceItem, required this.invoiceNumber});
 
   @override
   State<InvoiceDeliveryCard> createState() => _InvoiceDeliveryCardState();
@@ -21,7 +22,7 @@ class InvoiceDeliveryCard extends StatefulWidget {
 
 class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
   // Retrieve the InvoiceController instance.
-  final InvoiceController invoiceController = Get.find<InvoiceController>();
+  late final InvoiceController invoiceController;
   
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -35,6 +36,8 @@ class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
   void initState() {
     // TODO: implement initState
     super.initState();
+    // Get the InvoiceController with the invoice number tag
+    invoiceController = Get.find<InvoiceController>(tag: widget.invoiceNumber);
   }
   
   @override
@@ -94,7 +97,11 @@ class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
 
     if(serialsResults && serialNumberList.isNotEmpty){
       
-      Navigator.pushNamed(context, '/invoice_delivery_product_screen', arguments: {'invoiceItem': widget.invoiceItem,'serialNumberList': serialNumberList,});
+      Navigator.pushNamed(context, '/invoice_delivery_product_screen', arguments: {
+        'invoiceItem': widget.invoiceItem,
+        'serialNumberList': serialNumberList,
+        'invoiceNumber': widget.invoiceNumber,
+      });
     }
 
   }
@@ -105,6 +112,10 @@ class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
     Size size = MediaQuery.of(context).size;
     return InkWell(
       onTap: (){
+        if(widget.invoiceItem.lineStatus == "C"){
+          dynamicMaster.displayError(context, "Error", "This item is already completed and cannot be scanned.");
+          return;
+        }
         processNextPage();
       },
       child: Container(
@@ -139,6 +150,8 @@ class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
                       SizedBox(height: size.height * 0.01,),
                       Text("Qty: ${widget.invoiceItem.itemOpenQty.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                       SizedBox(height: size.height * 0.01,),
+                      widget.invoiceItem.lineStatus == "C" ? dynamicMaster.showBadge("Closed", Colors.greenAccent)  : dynamicMaster.showBadge("Pending", Colors.yellowAccent),
+                      SizedBox(height: size.height * 0.01,),
                       Obx(() {
                         // Calculate the current count from your reactive map.
                         final scannedCount = invoiceController.scannedSerials[widget.invoiceItem.itemCode]?.length ?? 0;
@@ -146,8 +159,8 @@ class _InvoiceDeliveryCardState extends State<InvoiceDeliveryCard> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const SizedBox(width: 10),
-                            Text("Scanned Qty: $scannedCount", style: const TextStyle(fontSize: 14, color: Colors.white)),
-                            Text("Pending Qty: ${widget.invoiceItem.itemOpenQty - scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                            Text("Scanned Qty: ${widget.invoiceItem.lineStatus == "C" ? 0 : scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
+                            Text("Pending Qty: ${widget.invoiceItem.lineStatus == "C" ? 0 : widget.invoiceItem.itemOpenQty - scannedCount}", style: const TextStyle(fontSize: 14, color: Colors.white)),
                           ],
                         );
                       })

@@ -29,6 +29,7 @@ class _ProductSerialNumberConfirmationState extends State<ProductSerialNumberCon
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<WarehouseModal> warehouseList = [];
   List<bool> productStockStatus = [];
+  List<ProductModal> productList = [];
 
   String? _cachedToken;
 
@@ -38,15 +39,16 @@ class _ProductSerialNumberConfirmationState extends State<ProductSerialNumberCon
     super.initState();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
-    _getWarehouses();
-    _cacheToken();
-    _preFetchProductStockStatus();
-  }
-  
+    _initialize();
 
-  Future<void> _cacheToken() async {
-    _cachedToken = await sessionProvider.authProvider.token;
   }
+  Future<void> _initialize() async {
+  _cachedToken = await sessionProvider.authProvider.token;
+
+  await _getWarehouses();
+  _preFetchProductStockStatus();
+  // setState(() {}); // trigger rebuild once fully ready
+}
 
   Future<void> _getWarehouses() async {
     var fetchedWarehouseList = await _dbHelper.getWarehouses();
@@ -99,40 +101,54 @@ class _ProductSerialNumberConfirmationState extends State<ProductSerialNumberCon
       }
     }
 
-    if(warehouse != null && warehouse!.isVirtual.toString() == "0"){
-      Map<String, dynamic> filters = {
-        "warehouseCode": warehouse!.code,
-        "itemCode": product.itemCode,
-      };
+    print("Warehouse: ${warehouse?.isVirtual} - ${warehouse?.code}");
 
-      var token = _cachedToken;
+    if(warehouse == null || warehouse!.isVirtual == 1){
+      // if no warehouse found, return false
+      return false;
+    }
 
-      if(token == null){
-        return false;
-      }
+    productList.add(product);
 
-      // check the stock of the product
-      var response = await apiService.filterProductStock(token, filters);
+    // if the warehouse is not virtual, check the stock
+    // if the warehouse is virtual, we assume stock is always available
+    // but we can still check the stock if needed
 
-      if(response["status"] == "success" && response["data"].isNotEmpty){
-        ProductStockModal productStock = productStockModalFromJson(jsonEncode(response["data"][0]));
+    Map<String, dynamic> filters = {
+      "warehouseCode": warehouse!.code,
+      "itemCode": product.itemCode,
+    };
 
-        if(productStock.onHand >= quantity){
-          output = true;
-        }else{
-          output = false;
-        }
+    var token = _cachedToken;
+
+    if(token == null){
+      return false;
+    }
+
+    // check the stock of the product
+    var response = await apiService.filterProductStock(token, filters);
+
+    if(response["status"] == "success" && response["data"].isNotEmpty){
+      ProductStockModal productStock = productStockModalFromJson(jsonEncode(response["data"][0]));
+
+      if(productStock.onHand >= quantity){
+        output = true;
       }else{
         output = false;
       }
+    }else{
+      output = false;
     }
 
     return output;
   }
   
   Future<void> _preFetchProductStockStatus() async {
+    productStockStatus.clear();
+    // Ensure we have the latest products from the controller
     for (var product in controller.products.keys) {
       bool status = await checkProductStock(product, controller.products[product]!);
+
       productStockStatus.add(status);
     }
     setState(() {});
@@ -141,28 +157,38 @@ class _ProductSerialNumberConfirmationState extends State<ProductSerialNumberCon
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    
-    return Obx(() =>
-      Container(
+
+    // If statuses isn't the same length as products, we're still loading.
+    if (productStockStatus.length < controller.products.length) {
+      return SizedBox(
+        height: MediaQuery.of(context).size.height * 0.5,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (productList.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
         height: size.height * 0.5,
         margin: EdgeInsets.only(top: size.height * 0.1),
         child: ListView.builder(
-          itemCount: controller.products.length,
+          itemCount: productList.length,
           itemBuilder: (context, index) {
-            if (productStockStatus.isNotEmpty && productStockStatus[index]) {
-              
-              return ProductSerialNumberCard(
-                controller: controller,
-                product: controller.products.keys.toList()[index],
-                quantity: controller.products.values.toList()[index],
-                index: index,
-              );
-            } else {
-              return Container();
-            }
+            // get the product from the controller
+            ProductModal product = productList[index];
+            int quantity = controller.products[productList[index]] ?? 0;
+
+            return ProductSerialNumberCard(
+              controller: controller,
+              product: product,
+              quantity: quantity,
+              index: index,
+            );
           },
         ),
-      )
-    );
+      );
+
   }
 }

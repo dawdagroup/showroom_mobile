@@ -14,14 +14,15 @@ import '../../../services/api_service.dart';
 class SalesOrderDeliveryProductScreen extends StatefulWidget {
   final SalesOrderDetailsLineItem salesOrderDetailsLineItem;
   final List<ProductSerialNumberModal> serialNumberList;
-  const SalesOrderDeliveryProductScreen({super.key, required this.salesOrderDetailsLineItem, required this.serialNumberList});
+  final String salesOrderNumber;
+  const SalesOrderDeliveryProductScreen({super.key, required this.salesOrderDetailsLineItem, required this.serialNumberList, required this.salesOrderNumber});
 
   @override
   State<SalesOrderDeliveryProductScreen> createState() => _SalesOrderDeliveryProductScreenState();
 }
 
 class _SalesOrderDeliveryProductScreenState extends State<SalesOrderDeliveryProductScreen> with WidgetsBindingObserver {
-  final SalesOrderController salesOrderController = Get.find<SalesOrderController>();
+  late final SalesOrderController salesOrderController;
   
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
@@ -38,6 +39,10 @@ class _SalesOrderDeliveryProductScreenState extends State<SalesOrderDeliveryProd
   void initState() {
     // TODO: implement initState
     super.initState();
+    
+    // Initialize controller with sales order number tag
+    salesOrderController = Get.find<SalesOrderController>(tag: widget.salesOrderNumber);
+    
     WidgetsBinding.instance.addObserver(this);
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
     init();

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:honeywell_scanner/honeywell_scanner.dart';
@@ -9,22 +10,26 @@ import '../../../controllers/po_controller.dart';
 import '../../../modals/purchase_order_details_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../services/image_service.dart';
 
 class PurchaseOrderProductScreen extends StatefulWidget {
   final PurchaseOrderLineItem purchaseOrderLineItem;
-  const PurchaseOrderProductScreen({super.key, required this.purchaseOrderLineItem});
+  final String purchaseOrderNumber;
+  const PurchaseOrderProductScreen({super.key, required this.purchaseOrderLineItem, required this.purchaseOrderNumber});
 
   @override
   State<PurchaseOrderProductScreen> createState() => _PurchaseOrderProductScreenState();
 }
 
 class _PurchaseOrderProductScreenState extends State<PurchaseOrderProductScreen>  with WidgetsBindingObserver {
-  final PurchaseOderController purchaseOderController = Get.find<PurchaseOderController>();
+  late final PurchaseOderController purchaseOderController;
 
   
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
   late SessionProvider sessionProvider;
+  bool isLoading = false;
+  String? productImagePath;
   
   HoneywellScanner honeywellScanner = HoneywellScanner();
   String? errorMessage;
@@ -39,6 +44,8 @@ class _PurchaseOrderProductScreenState extends State<PurchaseOrderProductScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    // Get the tagged controller instance
+    purchaseOderController = Get.find<PurchaseOderController>(tag: widget.purchaseOrderNumber);
     init();
   } 
   
@@ -100,7 +107,6 @@ class _PurchaseOrderProductScreenState extends State<PurchaseOrderProductScreen>
     honeywellScanner.setProperties(properties);
   }
 
-
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -121,7 +127,30 @@ class _PurchaseOrderProductScreenState extends State<PurchaseOrderProductScreen>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      widget.purchaseOrderLineItem.itemImageUrl == null ? Image.asset("assets/images/blank_image.png", width: size.width * 0.3,  height: size.height * 0.2) : Image.network(widget.purchaseOrderLineItem.itemImageUrl, width: size.width * 0.3, height: size.height * 0.2,),
+                      SizedBox(
+                        width: size.width * 0.3,
+                        child: ImageService.isValidItemCode(widget.purchaseOrderLineItem.itemCode?.toString()) ? 
+                          Image.network(
+                            ImageService.getProductImageUrl(widget.purchaseOrderLineItem.itemCode.toString()),
+                            height: size.height * 0.3, 
+                            width: size.width * 0.3,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(color: kPrimaryLightColor)
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                "assets/images/blank_image.png", 
+                                width: size.width * 0.3, 
+                                fit: BoxFit.cover
+                              );
+                            },
+                          ) :
+                          Image.asset("assets/images/blank_image.png", width: size.width * 0.3, fit: BoxFit.cover),
+                      ),
                       SizedBox(
                         width: size.width * 0.6,
                         child: Column(

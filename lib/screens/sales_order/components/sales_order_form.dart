@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../config/config.dart';
 import '../../../services/api_service.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../providers/session_provider.dart';
@@ -21,6 +22,8 @@ import '../../../modals/warehouse_modal.dart';
 import '../../../modals/product_stock_modal.dart';
 import 'package:toggle_switch/toggle_switch.dart';
 
+import '../../sales_quotation/components/cart_products.dart';
+
 class SalesOrderForm extends StatefulWidget {
   const SalesOrderForm({super.key});
 
@@ -29,6 +32,7 @@ class SalesOrderForm extends StatefulWidget {
 }
 
 class _SalesOrderFormState extends State<SalesOrderForm> with WidgetsBindingObserver {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final CartController cartController;
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -57,7 +61,6 @@ class _SalesOrderFormState extends State<SalesOrderForm> with WidgetsBindingObse
     init();
   }
 
-  
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -98,7 +101,6 @@ class _SalesOrderFormState extends State<SalesOrderForm> with WidgetsBindingObse
     }
   }
 
-  
   // @override
   void onError(Exception error) { }
 
@@ -276,7 +278,7 @@ class _SalesOrderFormState extends State<SalesOrderForm> with WidgetsBindingObse
                               Row(
                                 children: [
                                   Text(
-                                    "Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(product.price)}",
+                                    "Price: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(product.price)}",
                                     style: const TextStyle(
                                       fontSize: 16, 
                                       fontWeight: FontWeight.bold,
@@ -589,244 +591,87 @@ class _SalesOrderFormState extends State<SalesOrderForm> with WidgetsBindingObse
     ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(
-              height: size.height * 0.655, 
-              child: ListView.builder(
-                itemCount: cartController.products.length,
-                itemBuilder: (context, index){
-                  ProductModal product = cartController.products.keys.toList()[index];
-                  
-                  return Container(
-                    height: size.height * 0.4,
-                    margin: const EdgeInsets.only(left: 10, right: 10),
-                    decoration: BoxDecoration(
-                      color: kPrimaryColor,
-                      borderRadius: BorderRadius.circular(10.0),
-                      boxShadow:  [
-                        BoxShadow(
-                          color: Colors.black12.withOpacity(0.3),
-                          offset: const Offset(-10.0, 10.0),
-                          blurRadius: 20.0,
-                          spreadRadius: 4.0
-                        )
-                      ]
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: size.width * 0.01, vertical: size.height * 0.01),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          child: Container(
-                            height: size.height * 0.3,
-                            width: size.width * 0.3,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10.0),
-                              image: DecorationImage(
-                                image: NetworkImage(product.userText ?? ""),
-                                fit: BoxFit.cover
-                              )
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: size.width * 0.35,
-                          child: SizedBox(
-                            height: size.height * 0.3,
-                            width: size.width * 0.6,
-                            child: Column(
-                              children: [
-                                Text(
-                                  product.modelNo,
-                                  style: const TextStyle(
-                                    fontSize: 16, 
-                                    fontWeight: FontWeight.bold,
-                                    color: kPrimaryLightColor
-                                  ),
-                                ),
-                                SizedBox(height: size.height * 0.01),
-                                Text(
-                                  product.itemCode,
-                                  style: const TextStyle(
-                                    fontSize: 16, 
-                                    fontWeight: FontWeight.bold,
-                                    color: kPrimaryLightColor
-                                  ),
-                                ),
-                                SizedBox(height: size.height * 0.01),
-                                Text(
-                                  product.brand,
-                                  style: const TextStyle(
-                                    fontSize: 16, 
-                                    fontWeight: FontWeight.bold,
-                                    color: kPrimaryLightColor
-                                  ),
-                                ),
-                                SizedBox(height: size.height * 0.01),
-                                Text(
-                                  'Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(product.price)}',
-                                  style: const TextStyle(
-                                    fontSize: 16, 
-                                    fontWeight: FontWeight.bold,
-                                    color: kPrimaryLightColor
-                                  ),
-                                ),
-                                SizedBox(height: size.height * 0.01),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.remove_circle),
-                                      onPressed: (){
-                                        setState(() {
-                                          cartController.removeProduct(product);
-                                        });
-                                      },
-                                      iconSize: size.height * 0.06,
-                                      color: kPrimaryLightColor
-                                    ),
-                                    SizedBox(width: size.width * 0.01),
-                                    Text(
-                                      '${cartController.products.values.toList()[index]}',
-                                      style: TextStyle(
-                                        fontSize: size.height * 0.04,
-                                        fontWeight: FontWeight.bold,
-                                        color: kPrimaryLightColor
-                                      ),
-                                    ),
-                                    SizedBox(width: size.width * 0.01),
-                                    IconButton(
-                                      icon: const Icon(Icons.add_circle),
-                                      onPressed: (){
-                                        setState(() {
-                                          cartController.addProduct(product);
-                                        });
-                                      },
-                                      iconSize: size.height * 0.06,
-                                      color: kPrimaryLightColor
-                                    )
-                                  ],
-                                )
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          child: Container(
-                            width: size.width * 0.9,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                ElevatedButton(
-                                  onPressed: (){
-                                    Navigator.pushNamed(context, '/product_details', arguments: product.barcode);
-                                  }, 
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.remove_red_eye_outlined, color: Colors.white,),
-                                      Text("View Details", style: TextStyle(color: Colors.white),)
-                                    ],
-                                  )
-                                ),
-                                ElevatedButton(
-                                  onPressed: (){
-                                    showProductPreferenceDialog(context, product);
-                                  }, 
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.settings, color: Colors.white,),
-                                      Text("Preference", style: TextStyle(color: Colors.white),)
-                                    ],
-                                  )
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(50.0),
-                  // topLeft: Radius.circular(50.0),
-                  // topLeft: Radius.circular(50)
+            CardProducts(),
+            Obx(() => 
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(50.0),
+                    // topLeft: Radius.circular(50.0),
+                    // topLeft: Radius.circular(50)
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFF363f93).withOpacity(0.3),
+                        offset: const Offset(-10.0, 0.0),
+                        blurRadius: 20.0,
+                        spreadRadius: 4.0
+                    )
+                  ]
                 ),
-                boxShadow: [
-                  BoxShadow(
-                      color: const Color(0xFF363f93).withOpacity(0.3),
-                      offset: const Offset(-10.0, 0.0),
-                      blurRadius: 20.0,
-                      spreadRadius: 4.0
-                  )
-                ]
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Sub-Total: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(cartController.subTotal)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        )
-                      ],
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Sub-Total: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(cartController.subTotal)}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          )
+                        ],
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
-                    child: Row(
-                      children: [
-                        Text(
-                          'VAT: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(cartController.vatAmount)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        )
-                      ],
+                    Padding(
+                      padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
+                      child: Row(
+                        children: [
+                          Text(
+                            'VAT: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(cartController.vatAmount)}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          )
+                        ],
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Total: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(cartController.subTotal + cartController.vatAmount)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        )
-                      ],
+                    Padding(
+                      padding: EdgeInsets.only(top: size.height * 0.01, left: size.width * 0.05, right: size.width * 0.05),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Total: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(cartController.subTotal + cartController.vatAmount)}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          )
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(height: size.height * 0.01),
+                    SizedBox(height: size.height * 0.01),
 
-                  RoundedButton(
-                    btnText: "Proceed to Checkout", 
-                    press: () async {
-                      // dynamicMaster.displayLoadingModal(context);
-                      if(await validateProductsStock()){
-                        // Navigator.of(context).pop();
-                        Navigator.pushNamed(context, '/checkout-sales-order');
-                      }else{
-                        // Navigator.of(context).pop();
-                      }
-                    }, 
-                    btnColor: kPrimaryColor, 
-                    textColor: kPrimaryLightColor
-                  ),
+                    RoundedButton(
+                      btnText: "Proceed to Checkout", 
+                      press: () async {
+                        // dynamicMaster.displayLoadingModal(context);
+                        if(await validateProductsStock()){
+                          // Navigator.of(context).pop();
+                          Navigator.pushNamed(context, '/checkout-sales-order');
+                        }else{
+                          // Navigator.of(context).pop();
+                        }
+                      }, 
+                      btnColor: kPrimaryColor, 
+                      textColor: kPrimaryLightColor
+                    ),
 
-                  SizedBox(height: size.height * 0.01),
-                ],
+                    SizedBox(height: size.height * 0.01),
+                  ],
+                ),
               ),
-            ),
+            )
           ],
         ),
       )

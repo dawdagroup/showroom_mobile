@@ -11,12 +11,14 @@ class SalesDeliveryScreen extends StatefulWidget {
 }
 
 class _SalesDeliveryScreenState extends State<SalesDeliveryScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(Theme.of(context), context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(Theme.of(context), context, _scaffoldKey),
       body: const SalesDeliveryScreenBody(),
     );
   }

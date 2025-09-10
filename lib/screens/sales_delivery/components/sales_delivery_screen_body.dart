@@ -1,15 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:showroom_manager/components/rounded_buttons.dart';
+import 'package:showroom_manager/constant/constants.dart';
 
 import '../../../components/dynamic_widgets.dart';
-import '../../../constant/constants.dart';
-import '../../../modals/invoice_details_modal.dart';
-import '../../../modals/sales_order_details_modal.dart';
+import '../../../components/filter_params.dart';
+import '../../../config/config.dart';
+import '../../../modals/delivery_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import 'sales_delivery_filter_dialog.dart';
 
 class SalesDeliveryScreenBody extends StatefulWidget {
   const SalesDeliveryScreenBody({super.key});
@@ -23,13 +25,9 @@ class _SalesDeliveryScreenBodyState extends State<SalesDeliveryScreenBody> {
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
   bool isLoading = false;
-  
-  List<String> documentTypeList = ["Sales Invoice","Sales Order"];
-  bool isDocumentTypeOptionHasErrors = false;
-  TextEditingController documentTypeOptionController = TextEditingController();
-  TextEditingController documentNumberController = TextEditingController();
 
-  
+  List<DeliveryModal> deliveryList = [];
+
   @override
   void initState() {
     // TODO: implement initState
@@ -41,170 +39,186 @@ class _SalesDeliveryScreenBodyState extends State<SalesDeliveryScreenBody> {
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
+    filterSalesDelivery({});
   }
 
-  Future<void> processDocumentQuery() async {
-    try{
+  Future<void> filterSalesDelivery(Map<String, dynamic> filters) async {
       var token = await sessionProvider.authProvider.token;
 
-      // Ensure token is not null
-      if (token == null) {
+      if (token == null) {  
         dynamicMaster.displayError(context, "Error", "No valid session token.");
         setState(() { isLoading = false; });
         return;
       }
 
-      dynamicMaster.displayLoadingModal(context);
+      try {
+        setState(() {
+          isLoading = true;
+          deliveryList.clear();
+        });
 
-      if(documentTypeOptionController.text == "Sales Invoice"){
-        var response = await apiService.getInvoiceDetails(documentNumberController.text, token);
-        Navigator.pop(context);
+        var response = await apiService.filterSalesDelivery(token, filters);
 
-        if(response["status"] == "success" && response["data"] != null){
-          var invoiceObject = invoiceDetailsModalFromJson(jsonEncode(response["data"][0]));
-
-          print(invoiceObject.inventoryStatus);
-
-          if(invoiceObject.inventoryStatus == "C"){
-            dynamicMaster.displayError(context, "Error", "Invoice has already been closed");
-            return;
-          }
-
-          Navigator.pushNamed(context, "/invoice_delivery", arguments: invoiceObject);
-        }else{
-          dynamicMaster.displayError(context, "Error", response["message"]);
-        }
-      }else{
-        var response = await apiService.getSalesOrderDetails(documentNumberController.text, token);
-        Navigator.pop(context);
+        setState(() {
+          isLoading = false;
+        });
 
         if(response["status"] == "success" && response["data"] != null){
-          var salesOrderObject = salesOrderDetailsModalFromJson(jsonEncode(response["data"][0]));
-
-          if(salesOrderObject.inventoryStatus == "C"){
-            dynamicMaster.displayError(context, "Error", "Sales Order has already been closed");
-            return;
+          for (var item in response["data"]) {
+            deliveryList.add(deliveryModalFromJson(jsonEncode(item)));
           }
-
-          Navigator.pushNamed(context, "/sales_oder_delivery", arguments: salesOrderObject);
-        }else{
-          dynamicMaster.displayError(context, "Error", response["message"]);
         }
+        else {
+          dynamicMaster.displayError(context, "Error", response["message"] ?? "Failed to filter sales delivery.");
+        }
+      } catch (e) {
+        dynamicMaster.displayError(context, "Error", "Failed to filter sales delivery.");
       }
+  }
+  
+  Future<void> showFilterDialog() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return SalesDeliveryFilterDialog(
+          onSubmit: (FilterParams filterParams) {
+            applyFilters(filterParams);
+          },
+        );
+      },
+    );
+  }
 
-    }catch(e){
-      print(e);
-      Navigator.pop(context);
-      dynamicMaster.displayError(context, "Error", "An error occurred");
-    }
+  
+  Future<void> applyFilters(FilterParams filterParams) async {
+    Map<String, dynamic> filters = {};
+    if (filterParams.customerName.isNotEmpty) filters["customerName"] = filterParams.customerName;
+    if (filterParams.phoneNumber.isNotEmpty) filters["customerPhoneNo"] = filterParams.phoneNumber;
+    if (filterParams.fromDate.isNotEmpty) filters["fromDate"] = filterParams.fromDate;
+    if (filterParams.toDate.isNotEmpty) filters["toDate"] = filterParams.toDate;
+    if (filterParams.quotationNo.isNotEmpty) filters["delivery_number"] = filterParams.quotationNo;
+
+    await filterSalesDelivery(filters);
   }
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    return Container(
-      height: size.height * 0.9,
+    return SizedBox(
+      height: size.height,
       width: size.width,
-      child: SingleChildScrollView(
-        child: Container(
-          padding: const EdgeInsets.only(left: 10.0, right: 10.0),
-          child: Column(
-            children: [
-              SizedBox(height: size.height * 0.3,),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isDocumentTypeOptionHasErrors ? Colors.red : Colors.grey,
-                    width: 1.0
-                  ),
-                  borderRadius: BorderRadius.circular(5),
-          
-                ),
-                child: DropdownButton<String>(
-                  items: documentTypeList.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if(value != null){
-                      setState(() {
-                        isDocumentTypeOptionHasErrors = false;
-                        documentTypeOptionController.text = value;
-                      });
-                    }
+      child: Column(
+        children: [
+          SizedBox(height: size.height * 0.02),
+          const Text("Sales Delivery List", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),),
+          SizedBox(height: size.height * 0.02),
+          SizedBox(
+            height: size.height * 0.68,
+            child: isLoading ? const Center(child: CircularProgressIndicator()) 
+            : deliveryList.isEmpty ?
+            const Center(child: Text("No Deliveries Found"))
+            : ListView.builder(
+              itemCount: deliveryList.length,
+              itemBuilder: (context, index) {
+                return InkWell(
+                  onTap: (){
+                    Navigator.pushNamed(context, '/delivery_details', arguments: deliveryList[index].deliveryNumber.toString());
                   },
-                  value: documentTypeOptionController.text.isEmpty ? null : documentTypeOptionController.text,
-                  isExpanded: true,
-                  hint: const Text("Select Document Type"),
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Card(
+                      elevation: 5,
+                      child: Container(
+                        height: size.height * 0.22,
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text("Date: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(DateFormat('dd-MM-yyyy').format(DateTime.parse(deliveryList[index].docDate.toString()))),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                const Text("Quote No: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(deliveryList[index].deliveryNumber.toString()),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                const Text("Customer Name: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(deliveryList[index].customerName ?? "N/A"),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                const Text("Phone No: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(deliveryList[index].customerPhoneNo ?? "N/A"),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                const Text("Amount: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(double.parse(deliveryList[index].totalAmount.toString()))),
+                              ],
+                            )
+                          ],
+                        ),
+                      )
+                    ),
                   ),
-                  padding: const EdgeInsets.only(left: 9.0, right: 9.0),
-                  underline: Container(),
-                ),
-              ),
-              SizedBox(height: size.height * 0.02,),
-              TextField(
-                keyboardType: TextInputType.text,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Enter Document Number',
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(),
-                  ),
-                  labelStyle: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      width: 1,
-                      color: Colors.grey
-                    )
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      width: 1.5,
-                      color: kPrimaryColor
-                    )
-                  ),
-                ),
-                controller: documentNumberController,
-              ),
-              SizedBox(height: size.height * 0.02,),
-              RoundedButton(
-                btnText: "Submit", 
-                press: (){
-                  if(documentTypeOptionController.text.isEmpty){
-                    dynamicMaster.displayError(context, "Error", "Document Type is required");
-                    setState(() {
-                      isDocumentTypeOptionHasErrors = true;
-                    });
-                  }else if(documentNumberController.text.isEmpty){
-                    dynamicMaster.displayError(context, "Error", "Document Number is required");
-                    setState(() {
-                      isDocumentTypeOptionHasErrors = false;
-                    });
-                  }else{
-                    processDocumentQuery();
-                  }
-                }, 
-                btnColor: kSecondaryColor, 
-                textColor: kPrimaryLightColor
-              ),
-              SizedBox(height: size.height * 0.02,),
-            ],
+                );
+              },
+            ),
           ),
-        ),
+          SizedBox(height: size.height * 0.02),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: (){
+                    Navigator.pushNamed(context, '/sales_delivery_create');
+                  }, 
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.add),
+                      SizedBox(width: 8),
+                      Text("Add New Delivery"),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: (){
+                    showFilterDialog();
+                  }, 
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    backgroundColor: kSecondaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.filter_list),
+                      SizedBox(width: 8),
+                      Text("Filter"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -34,7 +34,7 @@ const List<String> tablesCreationCommands = [
   '''
       CREATE TABLE warehouse (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT UNIQUE,
+        code TEXT,
         name TEXT,
         region TEXT,
         is_display BOOLEAN DEFAULT 0,
@@ -48,7 +48,7 @@ const List<String> tablesCreationCommands = [
   '''
       CREATE TABLE cart_products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_code TEXT UNIQUE,
+        item_code TEXT,
         quantity INTEGER,
         price REAL,
         initial_discount REAL,
@@ -105,7 +105,7 @@ const List<String> tablesCreationCommands = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         invoice_delivery_id INTEGER,
         item_code TEXT,
-        serial_number TEXT UNIQUE,
+        serial_number TEXT,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (invoice_delivery_id) REFERENCES invoice_delivery_scan(id) ON DELETE CASCADE
@@ -124,10 +124,20 @@ const List<String> tablesCreationCommands = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         purchase_order_receipt_id INTEGER,
         item_code TEXT,
-        serial_number TEXT UNIQUE,
+        scanned_quantity INTEGER DEFAULT 0,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (purchase_order_receipt_id) REFERENCES purchase_order_receipt(id) ON DELETE CASCADE
+      )
+  ''',
+  '''
+      CREATE TABLE purchase_order_receipt_serial_numbers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        purchase_order_receipt_product_id INTEGER,
+        serial_number TEXT,
+        is_synced BOOLEAN DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (purchase_order_receipt_product_id) REFERENCES purchase_order_receipt_products(id) ON DELETE CASCADE
       )
   ''',
   '''
@@ -143,7 +153,7 @@ const List<String> tablesCreationCommands = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sales_order_delivery_id INTEGER,
         item_code TEXT,
-        serial_number TEXT UNIQUE,
+        serial_number TEXT,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sales_order_delivery_id) REFERENCES sales_order_delivery_scan(id) ON DELETE CASCADE
@@ -162,10 +172,21 @@ const List<String> tablesCreationCommands = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         goods_issue_id INTEGER,
         item_code TEXT,
-        serial_number TEXT UNIQUE,
+        model_number TEXT,
+        scanned_quantity INTEGER DEFAULT 0,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (goods_issue_id) REFERENCES goods_issue_scan(id) ON DELETE CASCADE
+      )
+  ''',
+  '''
+      CREATE TABLE goods_issue_product_serial_numbers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        goods_issue_product_id INTEGER,
+        serial_number TEXT,
+        is_synced BOOLEAN DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (goods_issue_product_id) REFERENCES goods_issue_products(id) ON DELETE CASCADE
       )
   ''',
   '''
@@ -181,10 +202,51 @@ const List<String> tablesCreationCommands = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         stock_transfer_id INTEGER,
         item_code TEXT,
-        serial_number TEXT UNIQUE DEFAULT NULL,
+        serial_number TEXT DEFAULT NULL,
         status TEXT DEFAULT 'active',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (stock_transfer_id) REFERENCES stock_transfer_scan(id) ON DELETE CASCADE
       )
+  ''',
+  '''
+    CREATE TABLE physical_stock_take (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT DEFAULT 'active',
+      stock_count_number TEXT,
+      stock_count_type TEXT,
+      showroom_name TEXT,
+      warehouse_name TEXT,
+      warehouse_code TEXT,
+      physical_stock_count_type_name TEXT,
+      created_by INTEGER,
+      created_by_name TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  ''',
+  '''
+    CREATE TABLE physical_stock_take_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      physical_stock_count_id INTEGER,
+      barcode TEXT,
+      item_code TEXT,
+      item_name TEXT,
+      item_group TEXT,
+      item_brand TEXT,
+      item_picture_name TEXT,
+      model_number TEXT,
+      scanned_quantity INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (physical_stock_count_id) REFERENCES physical_stock_take(id) ON DELETE CASCADE
+    )
+  ''',
+  '''
+    CREATE TABLE physical_stock_take_serial_numbers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      physical_stock_count_product_id INTEGER,
+      serial_number TEXT,
+      is_synced BOOLEAN DEFAULT 0,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (physical_stock_count_product_id) REFERENCES physical_stock_take_products(id) ON DELETE CASCADE
+    )
   ''',
 ];

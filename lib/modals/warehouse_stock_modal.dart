@@ -14,6 +14,7 @@ class WarehouseStockModal {
   dynamic stockOnHand;
   dynamic warehouseType;
   dynamic warehouseShortName;
+  dynamic stockDate;
 
   WarehouseStockModal({
     required this.warehouseName,
@@ -21,6 +22,7 @@ class WarehouseStockModal {
     required this.stockOnHand,
     required this.warehouseType,
     required this.warehouseShortName,
+    required this.stockDate,
   });
 
   factory WarehouseStockModal.fromJson(Map<String, dynamic> json) => WarehouseStockModal(
@@ -29,6 +31,7 @@ class WarehouseStockModal {
     stockOnHand: json["stockOnHand"],
     warehouseType: json["warehouseType"],
     warehouseShortName: json["warehouseShortName"],
+    stockDate: json["stockDate"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -37,5 +40,6 @@ class WarehouseStockModal {
     "stockOnHand": stockOnHand,
     "warehouseType": warehouseType,
     "warehouseShortName": warehouseShortName,
+    "stockDate": stockDate,
   };
 }

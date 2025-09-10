@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import '../../../components/dynamic_widgets.dart';
+import '../../../components/navigation_observer.dart';
+import '../../../db/database_helper.dart';
+import '../../../modals/showroom_sales_summary_modal.dart';
 import '../../../providers/session_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +11,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../components/dashboard_buttons.dart';
 import '../../../components/statistic_card.dart';
+import '../../../services/api_service.dart';
 
 class HomeBodyScreen extends StatefulWidget {
   const HomeBodyScreen({super.key});
@@ -14,21 +20,91 @@ class HomeBodyScreen extends StatefulWidget {
   State<HomeBodyScreen> createState() => _HomeBodyScreenState();
 }
 
-class _HomeBodyScreenState extends State<HomeBodyScreen> {
+class _HomeBodyScreenState extends State<HomeBodyScreen> with RouteAware {
+  ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   final _Pagecontroller = PageController();
+  bool isLoading = false;
+  ShowroomSalesSummaryModal? showroomSalesSummary;
+
+  @override
+  void initState() {
+    super.initState();
+    sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+
+    fetchShowroomSalesSummary();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    // subscribe this State object to be notified
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void dispose() {
+    // don't forget to unsubscribe!
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when you come back to this screen (e.g. you popped off another route)
+    fetchShowroomSalesSummary();
+  }
+
+
+  Future<void> fetchShowroomSalesSummary() async {
+    setState(() { isLoading = true; showroomSalesSummary = null; });
+    try {
+
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        // logout user or redirect to login
+        Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+        return;
+      }
+
+      var showroomDetails = await _dbHelper.getShowroom();
+
+      if (showroomDetails == null) {
+        dynamicMaster.displayError(context, "Error", "No showroom details found.");
+        setState(() { isLoading = false; });
+        // logout user or redirect to login
+        Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+        return;
+      }
+
+      var response = await apiService.getSalesSummary(token, showroomDetails.showroom_id.toString());
+
+      if (response["status"] == "success") {
+        showroomSalesSummary = showroomSalesSummaryModalFromJson(jsonEncode(response["data"][0]));
+        setState(() { isLoading = false; });
+      } else {
+        // dynamicMaster.displayError(context, "Error", response["message"]);
+        print("Error fetching showroom sales summary: ${response["message"]}");
+        setState(() { isLoading = false; });
+      }
+
+    } catch (e) {
+      setState(() { isLoading = false; });
+      // Handle error
+      print("Error fetching showroom sales summary: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    return Container(
+    return SizedBox(
       height: size.height,
       width: size.width,
       child: SingleChildScrollView(
@@ -58,20 +134,23 @@ class _HomeBodyScreenState extends State<HomeBodyScreen> {
                   Statistics(
                     statsIcon: Icons.arrow_forward,
                     cardName: "My Sales Today",
-                    balance: double.parse("1000"),
+                    balance: showroomSalesSummary?.salesAgentsSalesToday ?? 0.0,
                     color: Colors.indigo,
+                    isLoading: isLoading,
                   ),
                   Statistics(
                     statsIcon: Icons.arrow_forward,
                     cardName: "Showroom Sales Today",
-                    balance: double.parse("1000"),
+                    balance: showroomSalesSummary?.showroomSalesToday ?? 0.0,
                     color: Colors.deepPurple,
+                    isLoading: isLoading,
                   ),
                   Statistics(
                     statsIcon: Icons.arrow_forward,
                     cardName: "Showroom Current Month Sales To date",
-                    balance: double.parse("1000"),
+                    balance: showroomSalesSummary?.showroomSalesToDate ?? 0.0,
                     color: Colors.green,
+                    isLoading: isLoading,
                   ),
                 ],
               ),

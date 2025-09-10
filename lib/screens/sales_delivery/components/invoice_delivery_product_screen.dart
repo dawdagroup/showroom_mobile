@@ -14,7 +14,8 @@ import '../../../services/api_service.dart';
 class InvoiceDeliveryProductScreen extends StatefulWidget {
   final InvoiceItem invoiceItem;
   final List<ProductSerialNumberModal> serialNumberList;
-  const InvoiceDeliveryProductScreen({super.key, required this.invoiceItem, required this.serialNumberList});
+  final String invoiceNumber;
+  const InvoiceDeliveryProductScreen({super.key, required this.invoiceItem, required this.serialNumberList, required this.invoiceNumber});
 
   @override
   State<InvoiceDeliveryProductScreen> createState() => _InvoiceDeliveryProductScreenState();
@@ -22,7 +23,7 @@ class InvoiceDeliveryProductScreen extends StatefulWidget {
 
 class _InvoiceDeliveryProductScreenState extends State<InvoiceDeliveryProductScreen> with WidgetsBindingObserver {
   // Retrieve the InvoiceController instance.
-  final InvoiceController invoiceController = Get.find<InvoiceController>();
+  late final InvoiceController invoiceController;
   
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
@@ -40,6 +41,10 @@ class _InvoiceDeliveryProductScreenState extends State<InvoiceDeliveryProductScr
   void initState() {
     // TODO: implement initState
     super.initState();
+    
+    // Initialize controller with invoice number tag
+    invoiceController = Get.find<InvoiceController>(tag: widget.invoiceNumber);
+    
     WidgetsBinding.instance.addObserver(this);
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
     init();

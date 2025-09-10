@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../config/config.dart';
 import '../db/database_helper.dart';
 import '../modals/product_modal.dart';
 import '../providers/session_provider.dart';
@@ -31,7 +32,7 @@ class CartController extends GetxController{
 
     _products.forEach((product, quantity) {
 
-      double vatRate = product.selectedTaxGroup != null ? product.selectedTaxGroup!.rate / 100 : 0.16;
+      double vatRate = product.selectedTaxGroup != null ? product.selectedTaxGroup!.rate / 100 : Config.defaultVatRate;
       
       double productVAT = product.price * quantity * vatRate;
       totalVAT += productVAT;
@@ -53,9 +54,38 @@ class CartController extends GetxController{
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
     _loadProductsFromDb();
   }
-  
+
+  getProductQuantity(ProductModal product) {
+    if (_products.isEmpty) return 0;
+    for (var key in _products.keys) {
+      if (key.barcode == product.barcode) {
+        return _products[key] ?? 0;
+      }
+    }
+    return 0; // Return 0 if the product is not found in the cart
+  }
+
   void _incrementProductCount(ProductModal product) {
-    _products[product] = (_products[product] ?? 0) + 1;
+    // _products[product] = (_products[product] ?? 0) + 1;
+    // check if the product already exists in the cart
+    if(_products.isEmpty){
+      _products[product] = 1;
+    }else{
+      bool productExists = false;
+      for (var key in _products.keys) {
+        if (key.barcode == product.barcode) {
+          _products[key] = _products[key]! + 1;
+          productExists = true;
+          increaseProductQuantity(product);
+          return; // Exit the loop once we find the product
+        }
+      }
+
+      if (!productExists) {
+        _products[product] = 1; // Add the product with a quantity of 1
+        _getOrCreateProductId(product);
+      }
+    }
     update();
   }
 
@@ -79,12 +109,21 @@ class CartController extends GetxController{
   }
 
   void removeProduct(ProductModal product){
-    if(_products.containsKey(product) && _products[product] == 1){
-      _products.removeWhere((key, value) => key == product);
-      _removeProduct(product);
-    }else{
-      _products[product] -= 1;
-      _decreaseQuantity(product);
+    if(_products.isEmpty) return;
+    // check if the product exists in the cart
+    for (var key in _products.keys) {
+      if (key.barcode == product.barcode) {
+        _products[key] = _products[key]! - 1;
+        // check if we need to remove the product from the cart
+        if (_products[key]! <= 0) {
+          _products.remove(key);
+          _removeProduct(product);
+        }else{
+          // decrease the quantity of the product in the database
+          _decreaseQuantity(product);
+        }
+        break; // Exit the loop once we find the product
+      }
     }
   }
 
@@ -147,7 +186,7 @@ class CartController extends GetxController{
   }
 
   Future<void> _removeProduct(ProductModal product) async {
-    final productId = await _getOrCreateProductId(product);
+    final productId = await _dbHelper.getOrCreateProductId(product);
     await _dbHelper.deleteRaw('DELETE FROM cart_products WHERE id = ?', [productId]);
   }
 
@@ -157,53 +196,48 @@ class CartController extends GetxController{
   }
 
   Future<void> _decreaseQuantity(ProductModal product) async {
-    final productId = await _getOrCreateProductId(product);
+    final productId = await _dbHelper.getOrCreateProductId(product);
     await _dbHelper.executeSql('UPDATE cart_products SET quantity = quantity - 1 WHERE id = ?', [productId]);
   }
 
   // Load products from the database
   Future<void> _loadProductsFromDb() async {
-  //   final productMaps = await _dbHelper.queryRaw('SELECT * FROM cart_products WHERE 1=1', []);
-  //   String? _userSession = await sessionProvider.authProvider.token;
+    // wait for the cart to be initialized
+    // await Future.delayed(const Duration(seconds: 1));
+    // // check if we have the products in memory
+    // if (_products.isNotEmpty) {
+    //   print("Products already loaded: $_products");
+    //   return; // Products are already loaded
+    // }
+    // // // Fetch products from the database
+    // final productMaps = await _dbHelper.queryRaw('SELECT * FROM cart_products WHERE 1=1', []);
+    // String? _userSession = await sessionProvider.authProvider.token;
 
-  //   for (var map in productMaps) {
-  //     // print(map);
+    // print("Product Maps: $productMaps");
+    // print("User Session: $_userSession");
 
-  //     // print(_userSession);
-  //     // var response = await _apiService.fetchProductDetails({"token": _userSession,"customerCardCode": _outletCode,"itemCode": map['item_code'],});
-
-  //     // if (_isResponseValid(response)) {
-  //     //   Product product = productFromJson(jsonEncode(response["data"][0]));
-  //     //   final serialCount = await _getSerialCountForProduct(map['id']);
-  //     //   _products[product] = serialCount;
-  //     // } else {
-  //     //   _removeInvalidProduct(map['id']);
-  //     // }
-  //   }
+    // for (var map in productMaps) {
+    //   print("Map: $map");
+    // }
   //   update();
   }
 
   Future<int> _getOrCreateProductId(ProductModal product) async {
     try {
-      final existingProduct = await _dbHelper.queryRaw(
-        'SELECT id FROM cart_products WHERE item_code = ?',
-        [product.itemCode],
-      );
+      final productId = await _dbHelper.getOrCreateProductId(product);
 
-      if (existingProduct.isNotEmpty) {
-        return existingProduct.first['id'];
-      } else {
-        return await _dbHelper.insertRaw(
-          'INSERT INTO cart_products (item_code, quantity, price, initial_discount) VALUES (?, ?, ?, ?)',
-          [product.itemCode, 1, product.price, product.discount],
-        );
-      }
+      return productId;
     } catch (error, stackTrace) {
       // Capture the exception with Sentry.
       await Sentry.captureException(error, stackTrace: stackTrace);
       // Optionally, you can rethrow the error to let higher-level error handlers deal with it.
       rethrow;
     }
+  }
+
+  Future<void> increaseProductQuantity(ProductModal product) async {
+    final productId = await _dbHelper.getOrCreateProductId(product);
+    await _dbHelper.executeSql('UPDATE cart_products SET quantity = quantity + 1 WHERE id = ?', [productId]);
   }
 
   Future<Map<String, dynamic>> getProductDetails(ProductModal product) async {
@@ -229,7 +263,7 @@ class CartController extends GetxController{
       await Future.forEach(_products.entries, (entry) async {
         var key = entry.key;
         var value = entry.value;
-        int productId = await _getOrCreateProductId(key);
+        int productId = await _dbHelper.getOrCreateProductId(key);
         // get product request 
         var productRequest = await _dbHelper.queryRaw('SELECT * FROM cart_product_request WHERE cart_products_id = ?', [productId]);
         
@@ -246,6 +280,7 @@ class CartController extends GetxController{
           'selectedPickUpLocation': productRequest.isNotEmpty ? productRequest.first['pickup_location'] : '',
           'selectedRate': productRequest.isNotEmpty ? productRequest.first['tax_group'] : '',
         };
+
         cartDetails.add(details);
       });
       return cartDetails;

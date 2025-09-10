@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:honeywell_scanner/honeywell_scanner.dart';
@@ -9,21 +10,25 @@ import '../../../controllers/goods_issue_controller.dart';
 import '../../../modals/goods_issue_details_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../services/image_service.dart';
 
 class GoodsIssueProductScreen extends StatefulWidget {
   final GoodsIssueDetailsLineItem goodsIssueDetailsLineItem;
-  const GoodsIssueProductScreen({super.key, required this.goodsIssueDetailsLineItem});
+  final String goodsIssueNumber;
+  const GoodsIssueProductScreen({super.key, required this.goodsIssueDetailsLineItem, required this.goodsIssueNumber});
 
   @override
   State<GoodsIssueProductScreen> createState() => _GoodsIssueProductScreenState();
 }
 
 class _GoodsIssueProductScreenState extends State<GoodsIssueProductScreen>  with WidgetsBindingObserver  {
-  final GoodsIssueController goodsIssueController = Get.find<GoodsIssueController>();
+  late final GoodsIssueController goodsIssueController;
   
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
   late SessionProvider sessionProvider;
+  bool isLoading = false;
+  String? productImagePath;
   
   HoneywellScanner honeywellScanner = HoneywellScanner();
   String? errorMessage;
@@ -38,6 +43,8 @@ class _GoodsIssueProductScreenState extends State<GoodsIssueProductScreen>  with
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    // Get the tagged controller instance
+    goodsIssueController = Get.find<GoodsIssueController>(tag: widget.goodsIssueNumber);
     init();
   } 
   
@@ -67,7 +74,7 @@ class _GoodsIssueProductScreenState extends State<GoodsIssueProductScreen>  with
       return;
     }
 
-    bool results = await goodsIssueController.addProductSerialNumber(widget.goodsIssueDetailsLineItem.itemCode, scannedData?.code as String);
+    bool results = await goodsIssueController.addProductSerialNumber(widget.goodsIssueDetailsLineItem.itemCode, widget.goodsIssueDetailsLineItem.itemModelNo, scannedData?.code as String);
 
     if (!results) {
       dynamicMaster.displayError(context, "Error", "Serial number already scanned.");
@@ -119,7 +126,30 @@ class _GoodsIssueProductScreenState extends State<GoodsIssueProductScreen>  with
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      widget.goodsIssueDetailsLineItem.itemImageUrl == null ? Image.asset("assets/images/blank_image.png", width: size.width * 0.3,  height: size.height * 0.2) : Image.network(widget.goodsIssueDetailsLineItem.itemImageUrl, width: size.width * 0.3, height: size.height * 0.2,),
+                      SizedBox(
+                        width: size.width * 0.3,
+                        child: ImageService.isValidItemCode(widget.goodsIssueDetailsLineItem.itemCode?.toString()) ? 
+                          Image.network(
+                            ImageService.getProductImageUrl(widget.goodsIssueDetailsLineItem.itemCode.toString()),
+                            height: size.height * 0.3, 
+                            width: size.width * 0.3,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(color: kPrimaryLightColor)
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                "assets/images/blank_image.png", 
+                                width: size.width * 0.3, 
+                                fit: BoxFit.cover
+                              );
+                            },
+                          ) :
+                          Image.asset("assets/images/blank_image.png", width: size.width * 0.3, fit: BoxFit.cover),
+                      ),
                       SizedBox(
                         width: size.width * 0.6,
                         child: Column(

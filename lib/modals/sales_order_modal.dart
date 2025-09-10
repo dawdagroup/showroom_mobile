@@ -9,20 +9,20 @@ SalesOrderModal salesOrderModalFromJson(String str) => SalesOrderModal.fromJson(
 String salesOrderModalToJson(SalesOrderModal data) => json.encode(data.toJson());
 
 class SalesOrderModal {
-    int docEntry;
-    int saleOrderNumber;
-    String documentStatus;
-    String inventoryStatus;
+    dynamic docEntry;
+    dynamic saleOrderNumber;
+    dynamic documentStatus;
+    dynamic inventoryStatus;
     DateTime documentDate;
-    String cardCode;
-    String cardName;
-    String address;
+    dynamic cardCode;
+    dynamic cardName;
+    dynamic address;
     dynamic docTotal;
     dynamic approvalStatus;
-    String customerName;
-    String customerPhone;
+    dynamic customerName;
+    dynamic customerPhone;
     dynamic customerEmail;
-    String customerIdNo;
+    dynamic customerIdNo;
     dynamic customerKraPin;
 
     SalesOrderModal({

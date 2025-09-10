@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../components/dynamic_widgets.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
@@ -67,13 +68,13 @@ class _SalesQuotationScreenBodyState extends State<SalesQuotationScreenBody> {
         dynamicMaster.displayError(context, "Error", response["message"]);
       }
     } catch (e) {
+      print("Error fetching sales quotations: $e");
       dynamicMaster.displayError(context, "Error", "We are unable to connect to the server at the moment. Please check your internet connection and try again.");
     }
     setState(() {
       isLoading = false;
     });
   }
-
 
   Future<void> submitFilters( String customerName, String phoneNumber, String fromDate, String toDate, String quotationNo) async {
     // validate the date fields
@@ -207,12 +208,46 @@ class _SalesQuotationScreenBodyState extends State<SalesQuotationScreenBody> {
                       padding: const EdgeInsets.all(8.0),
                       child: Card(
                         elevation: 5,
-                        child: ListTile(
-                          leading: Text("${index + 1}"),
-                          title: Text(salesQuotationList[index].customerName),
-                          subtitle: Text(salesQuotationList[index].salesOrderRef.toString()),
-                          trailing: Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(double.parse(salesQuotationList[index].docTotal))),
-                        ),
+                        child: Container(
+                          height: size.height * 0.22,
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text("Date: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(DateFormat('dd-MM-yyyy').format(DateTime.parse(salesQuotationList[index].salesOrderDate.toString()))),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Quote No: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(salesQuotationList[index].salesOrderRef.toString()),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Customer Name: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(salesQuotationList[index].customerName ?? "N/A"),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Phone No: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(salesQuotationList[index].customerPhoneNo ?? "N/A"),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Amount: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(double.parse(salesQuotationList[index].docTotal))),
+                                ],
+                              )
+                            ],
+                          ),
+                        )
                       ),
                     ),
                   );

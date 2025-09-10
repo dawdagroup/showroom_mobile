@@ -110,7 +110,7 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
         child: Column(
           children: [
             SizedBox(height: size.height * 0.02,),
-            const Text("Aftersale Register", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: Colors.black),),
+            const Text("Aftersales Complaints", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: Colors.black),),
             SizedBox(height: size.height * 0.02,),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,14 +182,15 @@ class _ComplaintBodyScreenState extends State<ComplaintBodyScreen> {
                             Text("Date of Complaint: ${DateFormat("dd-MMMM-yyyy").format(listOfAftersaleRequestModal[index].dateOfComplaint)}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
                             Text("Consumer Name: ${listOfAftersaleRequestModal[index].consumerName}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
                             Text("Consumer Phone No: ${listOfAftersaleRequestModal[index].consumerPhoneNo}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
-                            Text("Consumer Email: ${listOfAftersaleRequestModal[index].consumerEmail}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
+                            Text("Product Category: ${listOfAftersaleRequestModal[index].itemGroup}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
+                            Text("Model No: ${listOfAftersaleRequestModal[index].itemModelNo}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
                             SizedBox(
                               width: size.width * 0.9,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text("Status:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
+                                  const Text("Complaint Status:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),),
                                   dynamicMaster.showBadge(listOfAftersaleRequestModal[index].status == "O" ? "Open" : listOfAftersaleRequestModal[index].status == "L" ? "Cancelled" : "Closed", listOfAftersaleRequestModal[index].status == "O" ? Colors.yellowAccent : listOfAftersaleRequestModal[index].status == "L" ? Colors.red : Colors.green),
                                 ],
                               ),

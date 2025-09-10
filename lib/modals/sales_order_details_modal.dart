@@ -9,8 +9,8 @@ SalesOrderDetailsModal salesOrderDetailsModalFromJson(String str) => SalesOrderD
 String salesOrderDetailsModalToJson(SalesOrderDetailsModal data) => json.encode(data.toJson());
 
 class SalesOrderDetailsModal {
-    int docEntry;
-    int saleOrderNumber;
+    dynamic docEntry;
+    dynamic saleOrderNumber;
     dynamic documentStatus;
     dynamic inventoryStatus;
     DateTime documentDate;

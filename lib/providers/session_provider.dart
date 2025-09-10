@@ -6,11 +6,8 @@ import 'auth_provider.dart';
 class SessionProvider with ChangeNotifier {
   AuthProvider authProvider;
   UserProvider userProvider;
-  late DateTime _lastActivity;
-  final Duration _timeoutDuration = const Duration(minutes: 30); // Adjust as needed
-  bool _isSessionActive = true;
 
-  SessionProvider({required this.authProvider, required this.userProvider}) { _lastActivity = DateTime.now(); }
+  SessionProvider({required this.authProvider, required this.userProvider});
 
   UserModal? get user => userProvider.user;
 

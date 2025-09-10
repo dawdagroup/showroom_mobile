@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../components/filter_params.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../modals/invoice_modal.dart';
 import '../../../providers/session_provider.dart';
@@ -109,7 +110,7 @@ class _InvoiceScreenBodyState extends State<InvoiceScreenBody> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Invoice List",style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
+                  Text("List of Invoices",style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
                 ],
               )
             ),
@@ -123,23 +124,51 @@ class _InvoiceScreenBodyState extends State<InvoiceScreenBody> {
               ListView.builder(
                 itemCount: invoiceList.length,
                 itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Card(
-                      elevation: 5,
-                      child: ListTile(
-                        title: Text(invoiceList[index].invoiceNumber.toString()),
-                        subtitle: Text(invoiceList[index].customerName),
-                        trailing: Column(
-                          children: [
-                            Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(double.parse(invoiceList[index].invoiceTotal.toString()))),
-                            const SizedBox(height: 5),
-                            Text(DateFormat("d/MM/y").format(DateTime.parse(invoiceList[index].invoiceDate.toString()))),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(context, '/invoice_details', arguments: invoiceList[index].invoiceNumber.toString());
-                        },
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/invoice_details', arguments: invoiceList[index].invoiceNumber.toString());
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Card(
+                        elevation: 5,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  const Text("Invoice Date: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(DateFormat("d-MM-y").format(DateTime.parse(invoiceList[index].invoiceDate.toString())), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Invoice Number: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(invoiceList[index].invoiceNumber.toString(), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Customer Name: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(invoiceList[index].customerName, style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Phone Number: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(invoiceList[index].customerPhoneNo, style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text("Amount: ", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),),
+                                  Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(double.parse(invoiceList[index].invoiceTotal.toString())), style: const TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
                       ),
                     ),
                   );

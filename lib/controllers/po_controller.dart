@@ -1,34 +1,65 @@
 import 'package:get/get.dart';
 import '../db/database_helper.dart';
+import '../modals/purchase_order_details_modal.dart';
 
 class PurchaseOderController extends GetxController {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   /// In‑memory map for quick duplicate checks.
   /// Key: product/item identifier; Value: set of scanned serial numbers.
-  RxMap<String, Set<String>> scannedSerials = <String, Set<String>>{}.obs;
+  RxMap<String, RxSet<String>> scannedSerials = <String, RxSet<String>>{}.obs;
 
-  
   /// Observable po number.
   var purchaseOrderNumber = ''.obs;
+  var purchaseOrderId = 0.obs;
+
+  PurchaseOderController(PurchaseOrderDetailsModal purchaseOrderDetailsObj) {
+    loadScans(purchaseOrderDetailsObj);
+  }
 
   
   // load existing serial numbers form the database
-  Future<void> loadScans() async {
-    // check if invoice number is set
-    if (purchaseOrderNumber.value.isEmpty) {
-      return;
-    }
+  Future<void> loadScans(PurchaseOrderDetailsModal purchaseOrderDetailsObj) async {
+    // Clear any existing data first to ensure clean state
+    scannedSerials.clear();
+    
+    // Set the purchase order number from the provided object.
+    purchaseOrderNumber.value = purchaseOrderDetailsObj.documentNumber.toString();
 
     var poHeader = await _dbHelper.getOrCreatePurchaseOrderScan(purchaseOrderNumber.value);
 
-    var purchaseOrderProductSerialNumbers = await _dbHelper.getInvoiceDeliveryProducts(poHeader);
+    print("Purchase Order Header ID: $poHeader");
 
-    if (purchaseOrderProductSerialNumbers.isNotEmpty) {
-      scannedSerials.clear();
-      for (var product in purchaseOrderProductSerialNumbers) {
-        scannedSerials.putIfAbsent(product['item_code'], () => <String>{});
-        scannedSerials[product['item_code']]!.add(product['serial_number']);
+    purchaseOrderId.value = poHeader;
+
+    // load all the products
+    for (var product in purchaseOrderDetailsObj.lineItems) {
+      // add the product to the db
+      var productExists = await _dbHelper.getOrCreatePurchaseOrderProducts(poHeader, product.itemCode);
+
+      print("Product Exists: $productExists");
+
+      if (productExists.isEmpty) {
+        print("No product found for item code ${product.itemCode}. Skipping.");
+        continue; // Skip if no product exists for the item code.
+      }
+
+      int productId = productExists[0]['id'] as int;
+
+      // Initialize the set for the item code.
+      scannedSerials.putIfAbsent(product.itemCode, () => <String>{}.obs);
+
+      // Check if the product has a model number and update the item code accordingly.
+      var productSerialNumbers = await _dbHelper.getPurchaseOrderProductSerialNumbers(productId);
+
+      if(productSerialNumbers.isEmpty) {
+        print("No serial numbers found for item code ${product.itemCode}. Skipping.");
+        continue; // Skip if no serial numbers exist for the product.
+      }
+
+      // add the product serial numbers to the set.
+      for (var serial in productSerialNumbers) {
+        scannedSerials[product.itemCode]!.add(serial['serial_number'] as String);
       }
     }
 
@@ -53,16 +84,21 @@ class PurchaseOderController extends GetxController {
         return false;
       }
     }
+      // add the product to the db
+    var productExists = await _dbHelper.getPurchaseOrderProduct(purchaseOrderId.toInt(), itemCode);
 
-    var poHeader = await _dbHelper.getOrCreatePurchaseOrderScan(purchaseOrderNumber.value);
+    if (productExists.isEmpty) {
+      // If the product does not exist, create it.
+      productExists = await _dbHelper.getOrCreatePurchaseOrderProducts(purchaseOrderId.toInt(), itemCode);
+    }
 
-    await _dbHelper.insertPurchaseOrderProduct(poHeader, itemCode, serialNumber);
+    int productId = productExists[0]['id'] as int;
 
-    scannedSerials.putIfAbsent(itemCode, () => <String>{});
+    // proceed to add the serial number.
+    await _dbHelper.insertPurchaseOrderProductSerialNumber(productId, serialNumber);
+
+    scannedSerials.putIfAbsent(itemCode, () => <String>{}.obs);
     scannedSerials[itemCode]!.add(serialNumber);
-
-    // Notify Obx listeners that the map has changed:
-    scannedSerials.refresh();
 
     update();
 
@@ -73,13 +109,16 @@ class PurchaseOderController extends GetxController {
   // remove serial number
   Future<void> removeProductSerialNumber(String itemCode, String serialNumber) async {
     // check if invoice number is set
-    if (purchaseOrderNumber.value.isEmpty) {
+    if (purchaseOrderNumber.value.isEmpty || !scannedSerials.containsKey(itemCode) || !scannedSerials[itemCode]!.contains(serialNumber)) {
       return;
     }
 
-    var poHeader = await _dbHelper.getOrCreatePurchaseOrderScan(purchaseOrderNumber.value);
+      // add the product to the db
+    var productExists = await _dbHelper.getPurchaseOrderProduct(purchaseOrderId.toInt(), itemCode);
 
-    await _dbHelper.deletePurchaseOrderProduct(poHeader, itemCode, serialNumber);
+    int productId = productExists[0]['id'] as int;
+
+    await _dbHelper.deletePurchaseOrderProductSerialNumber(productId, serialNumber);
 
     scannedSerials[itemCode]!.remove(serialNumber);
 
@@ -94,28 +133,17 @@ class PurchaseOderController extends GetxController {
       return {};
     }
 
-    // Get or create the invoice header
-    var poHeader = await _dbHelper.getOrCreatePurchaseOrderScan(purchaseOrderNumber.value);
-
-    // Retrieve the scanned products from the database
-    var invoiceProductsSerialNumbers = await _dbHelper.getPurchaseOrderProducts(poHeader);
-
-    // Prepare the output map
+    
     Map<String, List<String>> cartDetails = {};
 
-    for (var product in invoiceProductsSerialNumbers) {
-      // Extract the barcode and serial number from each product record
-      String itemCode = product['item_code'];
-
-      // If the barcode already exists as a key, append to the list; otherwise, create a new list.
-      if (cartDetails.containsKey(itemCode)) {
-        cartDetails[itemCode]!.add(product['serial_number']);
-      } else {
-        cartDetails[itemCode] = [product['serial_number']];
+    for (var itemCode in scannedSerials.keys) {
+      if (scannedSerials[itemCode]!.isNotEmpty) {
+        cartDetails[itemCode] = scannedSerials[itemCode]!.toList();
       }
     }
 
     return cartDetails;
+
   }
 
   Future<void> clearCart() async{
@@ -124,11 +152,8 @@ class PurchaseOderController extends GetxController {
       return;
     }
 
-    // Get or create the invoice header
-    var poHeader = await _dbHelper.getOrCreatePurchaseOrderScan(purchaseOrderNumber.value);
-
     // Clear the scanned products from the database
-    await _dbHelper.deletePurchaseOrder(poHeader);
+    await _dbHelper.deletePurchaseOrder(purchaseOrderId.toInt());
 
     // Clear the scanned products from the in-memory map
     scannedSerials.clear();
@@ -136,6 +161,8 @@ class PurchaseOderController extends GetxController {
     scannedSerials.refresh();
     update();
   }
+
+
 
 
 

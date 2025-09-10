@@ -11,13 +11,15 @@ class StockTransferScreen extends StatefulWidget {
 }
 
 class _StockTransferScreenState extends State<StockTransferScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
 
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(Theme.of(context), context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(Theme.of(context), context, _scaffoldKey),
       body: const StockTransferScreenBody(),
     );
   }

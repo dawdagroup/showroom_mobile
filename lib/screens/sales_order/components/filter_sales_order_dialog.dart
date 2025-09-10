@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../components/filter_params.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../components/labeled_text_field.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
@@ -183,12 +184,18 @@ class _FilterSalesOrderDialogState extends State<FilterSalesOrderDialog> {
                         labelText: 'Phone Number',
                         border: OutlineInputBorder(),
                       ),
-                      initialCountryCode: 'KE',
+                      initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                       controller: phoneNumberInputController,
                       onChanged: (phone) {},
                       disableLengthCheck: true,
                       validator: (PhoneNumber? value) {
 
+                        if(Config.releaseRegion == "UGANDA"){
+                          if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                            return 'Please enter a valid Ugandan phone number';
+                          }
+                          return null;
+                        }
                         if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
                           return 'Please enter a valid Kenyan phone number';
                         }

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -8,33 +9,39 @@ import '../../../controllers/goods_issue_controller.dart';
 import '../../../modals/goods_issue_details_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../services/image_service.dart';
 
 class GoodsIssueProductCard extends StatefulWidget {
   final GoodsIssueDetailsLineItem goodsIssueDetailsLineItem;
-  const GoodsIssueProductCard({super.key, required this.goodsIssueDetailsLineItem});
+  final String goodsIssueNumber;
+  const GoodsIssueProductCard({super.key, required this.goodsIssueDetailsLineItem, required this.goodsIssueNumber});
 
   @override
   State<GoodsIssueProductCard> createState() => _GoodsIssueProductCardState();
 }
 
 class _GoodsIssueProductCardState extends State<GoodsIssueProductCard> {
-  final GoodsIssueController goodsIssueController = Get.find<GoodsIssueController>();
+  late final GoodsIssueController goodsIssueController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
   bool isLoading = false;
+  String? productImagePath;
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+    // Get the tagged controller instance
+    goodsIssueController = Get.find<GoodsIssueController>(tag: widget.goodsIssueNumber);
   }
   
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+
   }
 
   @override
@@ -42,7 +49,10 @@ class _GoodsIssueProductCardState extends State<GoodsIssueProductCard> {
     Size size = MediaQuery.of(context).size;
     return InkWell(
       onTap: (){
-        Navigator.pushNamed(context, '/goods_issue_product_screen', arguments: widget.goodsIssueDetailsLineItem);
+        Navigator.pushNamed(context, '/goods_issue_product_screen', arguments: {
+          'goodsIssueDetailsLineItem': widget.goodsIssueDetailsLineItem,
+          'goodsIssueNumber': widget.goodsIssueNumber,
+        });
       },
       child: Container(
           width: size.width,
@@ -64,7 +74,30 @@ class _GoodsIssueProductCardState extends State<GoodsIssueProductCard> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                widget.goodsIssueDetailsLineItem.itemImageUrl == null ? Image.asset("assets/images/blank_image.png", width: size.width * 0.3) : Image.network(widget.goodsIssueDetailsLineItem.itemImageUrl, width: size.width * 0.3),
+                SizedBox(
+                  width: size.width * 0.3,
+                  child: ImageService.isValidItemCode(widget.goodsIssueDetailsLineItem.itemCode?.toString()) ? 
+                    Image.network(
+                      ImageService.getProductImageUrl(widget.goodsIssueDetailsLineItem.itemCode.toString()),
+                      height: size.height * 0.3, 
+                      width: size.width * 0.3,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(color: kPrimaryLightColor)
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          "assets/images/blank_image.png", 
+                          width: size.width * 0.3, 
+                          fit: BoxFit.cover
+                        );
+                      },
+                    ) :
+                    Image.asset("assets/images/blank_image.png", width: size.width * 0.3, fit: BoxFit.cover),
+                ),
                 SizedBox(
                   width: size.width * 0.6,
                   child: Column(

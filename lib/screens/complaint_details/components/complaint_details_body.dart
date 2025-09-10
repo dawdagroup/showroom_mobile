@@ -1,3 +1,4 @@
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +35,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
   List<AftersalesMovementTypeModal> movementTypeDropDownItems = [];
   List<String> damageTypeList = ["Yes", "No"];
   List<String> packagingMissingList = ["Yes", "No"];
+  List<String> accessoriesMissingList = ["Yes", "No"];
 
   TextEditingController packagingMissingController = TextEditingController();
   TextEditingController packagingMissingDetailsController = TextEditingController();
@@ -41,9 +43,11 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
   TextEditingController damageTypeDetailsController = TextEditingController();
   TextEditingController remarksController = TextEditingController();
   TextEditingController selectedMovementTypeController = TextEditingController();
+  TextEditingController accessoriesMissingController = TextEditingController();
+  TextEditingController accessoriesMissingDetailsController = TextEditingController();
 
-    
-    bool movementTypeHasError = false;
+  bool movementTypeHasError = false;
+  bool accessoriesMissingHasError = false;
 
   @override
   void initState() {
@@ -85,6 +89,51 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
     setState(() { isLoading = false; });
   }
 
+  Future<List<AftersalesMovementTypeModal>> getAftersalesMovementTypes(String? filter) async{
+    Map<String, dynamic> filters = {};
+
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        return [];
+      }
+
+      Map<String, dynamic> output = await apiService.getMovementTypes(token, filters);
+
+      if(output["status"] == "success"){
+        List<AftersalesMovementTypeModal> minRegions = [];
+        for(var item in output["data"]){
+          minRegions.add(aftersalesMovementTypeModalFromJson(jsonEncode(item)));
+        }
+        return minRegions;
+      }else{
+        return [];
+      }
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  Widget _aftersalesMovementTypePopupBuilder(BuildContext context, AftersalesMovementTypeModal item, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: !isSelected
+          ? null
+          : BoxDecoration(
+              border: Border.all(color: Theme.of(context).primaryColor),
+              borderRadius: BorderRadius.circular(5),
+              color: Colors.white,
+            ),
+      child: ListTile(
+        selected: isSelected,
+        title: Text(item.name),
+      ),  
+    );
+  }
+
   Future<void> collectItemDialog(BuildContext context) async { 
     IconButton closeButtonWidget = IconButton(
         onPressed: (){
@@ -98,31 +147,13 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
 
     Size size = MediaQuery.of(context).size;
 
-    var token = await sessionProvider.authProvider.token;
-
-    // Fetch movement types
-    if(token == null){
-      dynamicMaster.displayError(context, "Error", "You are not logged in");
-      return;
-    }
-
-    Map<String, dynamic> filters = {};
-    var response = await apiService.getMovementTypes(token, filters);
-
-    if(response["status"] == "success"){
-      for(var data in response["data"]){
-        setState(() {
-          movementTypeDropDownItems.add(aftersalesMovementTypeModalFromJson(jsonEncode(data)));
-        });
-      }
-    }
-
     return showDialog(
       context: context,
       builder: (context){
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState){
             return Dialog(
+              insetPadding: EdgeInsets.zero,
               child: Container(
                 height: size.height * 0.6,
                 width: size.width,
@@ -138,7 +169,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                         ],
                       ),
                       SizedBox(height: size.height * 0.02,),
-                      const Text("Collect Item", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,),),
+                      const Text("Update Aftersale Movement", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,),),
                       const Divider(height: 10, thickness: 1,),
                       SizedBox(height: size.height * 0.02,),
                       SizedBox(
@@ -155,43 +186,46 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                 ],
                               ),
                               SizedBox(height: size.height * 0.005,),
-                              Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: movementTypeHasError ? Colors.red : Colors.grey,
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4.0),
+                              DropdownSearch<AftersalesMovementTypeModal>(
+                                asyncItems: (String? filter) => getAftersalesMovementTypes(filter),
+                                popupProps: PopupPropsMultiSelection.modalBottomSheet(
+                                  showSelectedItems: true,
+                                  itemBuilder: _aftersalesMovementTypePopupBuilder,
+                                  showSearchBox: true,
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 8.0), // Add padding for better UI
-                                child: DropdownButton<AftersalesMovementTypeModal>(
-                                  isExpanded: true,
-                                  value: selectedMovementTypeController.text.isEmpty ? null : movementTypeDropDownItems.firstWhere((item) => item.name == selectedMovementTypeController.text),
-                                  
-                                  items: movementTypeDropDownItems.map((item) {
-                                    return DropdownMenuItem<AftersalesMovementTypeModal>(
-                                      value: item,
-                                      child: Text(item.name),
-                                    );
-                                  }).toList(),
-                                  onChanged: (AftersalesMovementTypeModal? value) {
+                                compareFn: (item, sItem) => item.id == sItem.id,
+                                dropdownDecoratorProps:  DropDownDecoratorProps(
+                                  dropdownSearchDecoration: InputDecoration(
+                                    labelText: 'Select Movement Type',
+                                    labelStyle: const TextStyle(color: kPrimaryColor),
+                                    filled: true,
+                                    fillColor: kPrimaryLightColor,
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: movementTypeHasError ? Colors.red : Colors.grey,
+                                      ),
+                                      // borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                                    ),
+                                    iconColor: kPrimaryColor,
+                                    prefixIconColor: kPrimaryColor
+                                  ),
+                                  baseStyle: const TextStyle(
+                                    color: kPrimaryColor
+                                  )
+                                ),
+                                onChanged: (value) {
+                                  if(value != null){
                                     setState(() {
-                                      if(value != null){
-                                        selectedMovementTypeController.text = value.name;
-                                        movementTypeHasError = false;
-                                      } else {
-                                        selectedMovementTypeController.clear();
-                                        movementTypeHasError = true;
-                                      }
+                                      movementTypeHasError = false;
+                                      selectedMovementTypeController.text = value.id.toString();
                                     });
-                                  },
-                                  hint: const Text('Select Movement Type', style: TextStyle(color: Colors.blue),), // Assuming kPrimaryColor is Colors.blue
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 15,
-                                  ),
-                                  underline: Container(),
-                                ),
+                                  }else{
+                                    setState(() {
+                                      movementTypeHasError = true;
+                                      selectedMovementTypeController.clear();
+                                    });
+                                  }
+                                },
                               ),
                               if (movementTypeHasError)
                                 const Padding(
@@ -306,6 +340,58 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                 },
                               ),
                               SizedBox(height: size.height * 0.02,),
+                              Row(
+                                children: [
+                                  const Text("Accessories Missing:", style: TextStyle(fontWeight: FontWeight.bold),),
+                                  SizedBox(width: size.width * 0.009,),
+                                  const Text("*", style: TextStyle(color: Colors.red),), // Assuming kRedColor is Colors.red
+                                ],
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: accessoriesMissingHasError ? Colors.red : Colors.grey,
+                                    width: 1.0,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4.0),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8.0), // Add padding for better UI
+                                child: DropdownButton<String>(
+                                  value: accessoriesMissingController.text.isEmpty ? null : accessoriesMissingController.text,
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  hint: const Text("Select Accessories Missing"),
+                                  iconSize: 24,
+                                  elevation: 16,
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 15,
+                                  ),
+                                  isExpanded: true,
+                                  underline: Container(
+                                  ),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      accessoriesMissingController.text = newValue!;
+                                    });
+                                  },
+                                  items: accessoriesMissingList.map<DropdownMenuItem<String>>((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              SizedBox(height: size.height * 0.02,),
+                              LabeledTextField(
+                                label: "Missing Accessories Details",
+                                hint: "Enter Missing Accessories Details",
+                                controller: accessoriesMissingDetailsController,
+                                validator: (value) {
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: size.height * 0.02,),
                               LabeledTextField(
                                 label: "Remarks",
                                 hint: "Enter Remarks",
@@ -320,6 +406,34 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                 children: [
                                   ElevatedButton(
                                     onPressed: () {
+                                      if(selectedMovementTypeController.text.isEmpty){
+                                        setState(() {
+                                          movementTypeHasError = true;
+                                        });
+                                        return;
+                                      }else if(accessoriesMissingController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please select accessories missing");
+                                        setState(() {
+                                          accessoriesMissingHasError = true;
+                                        });
+                                        return;
+                                      } else if(packagingMissingController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please select packaging missing");
+                                        return;
+                                      } else if(damageTypeController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please select damage type");
+                                        return;
+                                      }else if(accessoriesMissingController.text == "Yes" && accessoriesMissingDetailsController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please enter missing accessories details");
+                                        return;
+                                      } else if(packagingMissingController.text == "Yes" && packagingMissingDetailsController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please enter packaging missing details");
+                                        return;
+                                      } else if(damageTypeController.text == "Yes" && damageTypeDetailsController.text.isEmpty){
+                                        dynamicMaster.displayError(context, "Error", "Please enter damage type details");
+                                        return;
+                                      }
+                                      
                                       Navigator.of(context).pop();
                                       confirmCollectItemDialog(context);
                                       
@@ -401,6 +515,8 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
         "packagingMissingDetails": packagingMissingDetailsController.text,
         "damageType": damageTypeController.text,
         "damageDetails": damageTypeDetailsController.text,
+        "accessoriesMissing": accessoriesMissingController.text,
+        "accessoriesMissingDetails": accessoriesMissingDetailsController.text,
         "remarks": remarksController.text,
       };
 
@@ -412,6 +528,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
 
       if(response["status"] == "success"){
         dynamicMaster.displaySuccessMessage(context, "Collection item submitted successfully");
+        getComplaintDetails();
       }else{
         dynamicMaster.displayError(context, "Error", response["message"]);
       }
@@ -497,6 +614,77 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
       )
     );
 
+  }
+
+  Future<void> displayMovementDetails(MovementsLine movementDetails) async{
+    IconButton closeButtonWidget = IconButton(
+        onPressed: (){
+        Navigator.of(context).pop();
+      },
+      icon: const Icon(
+        Icons.clear,
+        size: 30,
+      )
+    );
+
+    Size size = MediaQuery.of(context).size;
+
+    return showDialog(
+      context: context,
+      builder: (context){
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState){
+            return Dialog(
+              insetPadding: EdgeInsets.zero,
+              child: Container(
+                height: size.height * 0.6,
+                width: size.width,
+                margin: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Image.asset("assets/images/azone.png", height: 50, width: 50,),
+                          closeButtonWidget
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.02,),
+                      const Text("Aftersale Movement Details", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,),),
+                      const Divider(height: 10, thickness: 1,),
+                      SizedBox(height: size.height * 0.02,),
+                      SizedBox(
+                        height: size.height * 0.5,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start, // Align text to start
+                            children: [
+                              Text("ASCN No: ${movementDetails.aftersalesCollectionNo}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                              Text("Movement Type: ${movementDetails.aftersalesMoveType}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                              Text("Packaging Missing: ${movementDetails.aftersalesPackagingType ?? "N/A"}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                              Text("Packaging Details: ${movementDetails.aftersalesPackagingDetails ?? "N/A"}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                              Text("Damage Type: ${movementDetails.aftersalesDamageType ?? "N/A"}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                              Text("Damage Details: ${movementDetails.aftersalesDamageDetails ?? "N/A"}", style: const TextStyle(fontWeight: FontWeight.bold),),
+                              SizedBox(height: size.height * 0.01,),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+        );
+      }
+    );
   }
 
 
@@ -704,7 +892,8 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                               child: Column(
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       ElevatedButton(
                                         onPressed: () {
@@ -717,8 +906,8 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                         child: const Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Icon(Icons.check_circle_outline_rounded),
-                                            Text("Collect Item"),
+                                            Icon(Icons.delivery_dining_outlined),
+                                            Text("Update Movement"),
                                           ],
                                         )
                                       ),
@@ -749,11 +938,17 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                       : ListView.builder(
                                         itemCount: aftersaleDetailedModal!.movementsLines.length,
                                         itemBuilder: (context, index) {
-                                          return Card(
-                                            child: ListTile(
-                                              title: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesMoveTypeDetails),
-                                              subtitle: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesCollectionNo.toString()),
-                                              trailing: Text(DateFormat('dd-MM-yyyy').format(DateFormat('yyyy-MM-dd').parse(aftersaleDetailedModal!.movementsLines[index].aftersalesDate))),
+                                          return InkWell(
+                                            onTap: () {
+                                              // Handle tap if needed
+                                              displayMovementDetails(aftersaleDetailedModal!.movementsLines[index]);
+                                            },
+                                            child: Card(
+                                              child: ListTile(
+                                                title: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesMoveTypeDetails),
+                                                subtitle: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesCollectionNo.toString()),
+                                                trailing: Text(DateFormat('dd-MM-yyyy').format(DateFormat('yyyy-MM-dd').parse(aftersaleDetailedModal!.movementsLines[index].aftersalesDate))),
+                                              ),
                                             ),
                                           );
                                         },

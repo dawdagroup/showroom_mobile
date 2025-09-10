@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../modals/sales_order_details_modal.dart';
 
@@ -41,7 +42,7 @@ class SaleOrderProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Price: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(lineItem.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(lineItem.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -127,7 +128,7 @@ class SaleOrderProductCard extends StatelessWidget {
                     SizedBox(height: size.height * 0.01,),
                     Text("Qty: ${lineItem.itemQuantity.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
-                    Text("Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(lineItem.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
+                    Text("Price: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(lineItem.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
                   ],
                 ),

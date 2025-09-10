@@ -92,7 +92,6 @@ class _StockTransferScreenBodyState extends State<StockTransferScreenBody> {
       if(filters.isEmpty){
         var fetchedWarehouseList = await _dbHelper.getWarehouses();
         filters = {
-          "status": "pending",
           "from_warehouse_code_list": [for (var item in fetchedWarehouseList) item.code].join(","),
           "to_warehouse_code_list": [for (var item in fetchedWarehouseList) item.code].join(","),
         };
@@ -117,12 +116,14 @@ class _StockTransferScreenBodyState extends State<StockTransferScreenBody> {
   Future<void> initScreen() async{
     var fetchedWarehouseList = await _dbHelper.getWarehouses();
     final Map<String, dynamic> filters = {
+      "is_active": "0",
       "from_warehouse_code_list": [for (var item in fetchedWarehouseList) item.code].join(","),
     };
   
     filterPendingStockTransferInit(filters: filters);
 
     final Map<String, dynamic> filters2 = {
+      "is_active": "0",
       "to_warehouse_code_list": [for (var item in fetchedWarehouseList) item.code].join(","),
     };
     filterPendingStockTransferInit(filters: filters2);

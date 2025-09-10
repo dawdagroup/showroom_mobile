@@ -23,7 +23,7 @@ class InvoiceDeliveryBody extends StatefulWidget {
 }
 
 class _InvoiceDeliveryBodyState extends State<InvoiceDeliveryBody> {
-  final InvoiceController invoiceController = Get.put(InvoiceController());
+  late final InvoiceController invoiceController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -34,6 +34,15 @@ class _InvoiceDeliveryBodyState extends State<InvoiceDeliveryBody> {
   void initState() {
     // TODO: implement initState
     super.initState();
+    
+    // Initialize controller with invoice number as tag
+    String invoiceTag = widget.invoiceDetailsObj.invoiceNumber.toString();
+    if (Get.isRegistered<InvoiceController>(tag: invoiceTag)) {
+      invoiceController = Get.find<InvoiceController>(tag: invoiceTag);
+    } else {
+      invoiceController = Get.put(InvoiceController(), tag: invoiceTag);
+    }
+    
     // Set the invoice number in the controller.
     invoiceController.invoiceNumber.value = widget.invoiceDetailsObj.invoiceNumber.toString();
   }
@@ -183,7 +192,17 @@ class _InvoiceDeliveryBodyState extends State<InvoiceDeliveryBody> {
                     child: ListView.builder(
                       itemCount: widget.invoiceDetailsObj.invoiceItems.length,
                       itemBuilder: (context, index) {
-                        return InvoiceDeliveryCard(invoiceItem: widget.invoiceDetailsObj.invoiceItems[index],);
+                        // itemInventoryStatus
+                        var itemInventoryStatus = widget.invoiceDetailsObj.invoiceItems[index].itemInventoryStatus;
+
+                        if (itemInventoryStatus == "C"){
+                          return SizedBox(); // Skip items with inventory status "C"
+                        }
+
+                        return InvoiceDeliveryCard(
+                          invoiceItem: widget.invoiceDetailsObj.invoiceItems[index],
+                          invoiceNumber: widget.invoiceDetailsObj.invoiceNumber.toString(),
+                        );
                       },
                     ),
                   ),

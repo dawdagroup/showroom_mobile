@@ -226,7 +226,7 @@ class DatabaseHelper {
 
   // Helper methods
   Future<int> getOrCreateProductId(ProductModal product) async {
-    final existingProduct = await queryRaw('SELECT id FROM cart_products WHERE item_code = ?',[product.itemCode], );
+    final existingProduct = await queryRaw('SELECT id, quantity FROM cart_products WHERE item_code = ?',[product.itemCode], );
 
     if (existingProduct.isNotEmpty) {
       return existingProduct.first['id'];
@@ -263,9 +263,11 @@ class DatabaseHelper {
   }
 
   Future<void> deleteInvoiceDelivery(int invoiceDeliveryId) async {
-    await deleteRaw('DELETE FROM invoice_delivery_scan WHERE id = ?', [invoiceDeliveryId]);
-
+    // Delete products first (child records)
     await deleteRaw('DELETE FROM invoice_delivery_products WHERE invoice_delivery_id = ?', [invoiceDeliveryId]);
+    
+    // Delete the main invoice delivery record last
+    await deleteRaw('DELETE FROM invoice_delivery_scan WHERE id = ?', [invoiceDeliveryId]);
   }
   
   Future<int> getOrCreatePurchaseOrderScan(String purchaseOrderNumber) async {
@@ -277,28 +279,68 @@ class DatabaseHelper {
     return await insertRaw('INSERT INTO purchase_order_receipt (po_number) VALUES (?)', [purchaseOrderNumber]);
   }
 
+  Future<List<Map<String, dynamic>>> getOrCreatePurchaseOrderProducts (int goodsIssueId, String itemCode) async {
+    final existingData = await queryRaw('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ? AND item_code = ?', [goodsIssueId, itemCode]);
+
+    if (existingData.isNotEmpty) {
+      return existingData;
+    } else {
+      // Insert a new goods issue product record
+      await insertRaw('INSERT INTO purchase_order_receipt_products (purchase_order_receipt_id, item_code) VALUES (?, ?)', [goodsIssueId, itemCode]);
+
+      // Return the newly inserted product
+      return await queryRaw('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ? AND item_code = ?', [goodsIssueId, itemCode]);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPurchaseOrderReceiptProducts(int purchaseOrderReceiptId) async {
+    final db = await database;
+    return await db.rawQuery('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ?', [purchaseOrderReceiptId]);
+  }
+
+  Future<List<Map<String, dynamic>>> getPurchaseOrderProduct(int purchaseOrderReceiptId, String itemCode) async {
+    final db = await database;
+    return await db.rawQuery('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ? AND item_code = ?', [purchaseOrderReceiptId, itemCode]);
+  }
+
+  // get po product serial numbers
+  Future<List<Map<String, dynamic>>>  getPurchaseOrderProductSerialNumbers(int productId) async {
+    final db = await database;
+    return await db.rawQuery('SELECT * FROM purchase_order_receipt_serial_numbers WHERE purchase_order_receipt_product_id = ?', [productId]);
+  }
+
   Future<List<Map<String, dynamic>>> getPurchaseOrderProducts(int purchaseOrderReceiptId) async {
     final db = await database;
     return await db.rawQuery('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ?', [purchaseOrderReceiptId]);
   }
 
-  Future<List<Map<String, dynamic>>> getPurchaseOrderProductSerialNumbers(int purchaseOrderReceiptId, String itemCode) async {
+  Future<void> insertPurchaseOrderProductSerialNumber(int productId, String serialNumber) async {
+    // check if the serial number already exists
     final db = await database;
-    return await db.rawQuery('SELECT * FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ? AND item_code = ?', [purchaseOrderReceiptId, itemCode]);
+    var results = await db.rawQuery('SELECT * FROM purchase_order_receipt_serial_numbers WHERE purchase_order_receipt_product_id = ? AND serial_number = ?', [productId, serialNumber]);
+
+    if(results.isNotEmpty){
+      return;
+    }
+    // insert the data into the purchase_order_receipt_serial_numbers table
+    await insertRaw('INSERT INTO purchase_order_receipt_serial_numbers (purchase_order_receipt_product_id, serial_number) VALUES (?,?)', [
+      productId, serialNumber
+    ],);
   }
 
-  Future<void> insertPurchaseOrderProduct(int purchaseOrderReceiptId, String itemCode, String serialNumber) async {
-    await insertRaw('INSERT INTO purchase_order_receipt_products (purchase_order_receipt_id, item_code, serial_number) VALUES (?, ?, ?)', [purchaseOrderReceiptId, itemCode, serialNumber],);
-  }
-
-  Future<void> deletePurchaseOrderProduct(int purchaseOrderReceiptId, String itemCode, String serialNumber) async {
-    await deleteRaw('DELETE FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ? AND item_code = ? AND serial_number = ?', [purchaseOrderReceiptId, itemCode, serialNumber]);
+  Future<void> deletePurchaseOrderProductSerialNumber(int productId, String serialNumber) async {
+    await deleteRaw('DELETE FROM purchase_order_receipt_serial_numbers WHERE purchase_order_receipt_product_id = ? AND serial_number = ?', [productId, serialNumber]);
   }
 
   Future<void> deletePurchaseOrder(int purchaseOrderReceiptId) async {
-    await deleteRaw('DELETE FROM purchase_order_receipt WHERE id = ?', [purchaseOrderReceiptId]);
-
+    // Delete serial numbers first (must be done before deleting products due to foreign key constraints)
+    await deleteRaw('DELETE FROM purchase_order_receipt_serial_numbers WHERE purchase_order_receipt_product_id IN (SELECT id FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ?)', [purchaseOrderReceiptId]);
+    
+    // Delete products second
     await deleteRaw('DELETE FROM purchase_order_receipt_products WHERE purchase_order_receipt_id = ?', [purchaseOrderReceiptId]);
+    
+    // Delete the main purchase order record last
+    await deleteRaw('DELETE FROM purchase_order_receipt WHERE id = ?', [purchaseOrderReceiptId]);
   }
 
   Future<int> getOrCreateSalesOrderDeliveryScan(String salesOrderNumber) async {
@@ -329,9 +371,11 @@ class DatabaseHelper {
   }
 
   Future<void> deleteSalesOrderDelivery(int salesOrderDeliveryId) async {
-    await deleteRaw('DELETE FROM sales_order_delivery_scan WHERE id = ?', [salesOrderDeliveryId]);
-
+    // Delete products first (child records)
     await deleteRaw('DELETE FROM sales_order_delivery_products WHERE sales_order_delivery_id = ?', [salesOrderDeliveryId]);
+    
+    // Delete the main sales order delivery record last
+    await deleteRaw('DELETE FROM sales_order_delivery_scan WHERE id = ?', [salesOrderDeliveryId]);
   }
 
   Future<int> getOrCreateGoodsIssueScan(String goodsIssueNumber) async {
@@ -343,28 +387,71 @@ class DatabaseHelper {
     return await insertRaw('INSERT INTO goods_issue_scan (goods_issue_number) VALUES (?)', [goodsIssueNumber]);
   }
 
+  Future<List<Map<String, dynamic>>> getOrCreateGoodsIssueProducts(int goodsIssueId, String itemCode, String modelNumber) async {
+    final existingData = await queryRaw('SELECT * FROM goods_issue_products WHERE goods_issue_id = ? AND item_code = ? ', [goodsIssueId, itemCode]);
+
+    if (existingData.isNotEmpty) {
+      return existingData;
+    } else {
+      // Insert a new goods issue product record
+      await insertRaw('INSERT INTO goods_issue_products (goods_issue_id, item_code, model_number) VALUES (?, ?, ?)', [goodsIssueId, itemCode, modelNumber]);
+
+      // Return the newly inserted product
+      return await queryRaw('SELECT * FROM goods_issue_products WHERE goods_issue_id = ? AND item_code = ?', [goodsIssueId, itemCode]);
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getGoodsIssueProducts(int goodsIssueId) async {
     final db = await database;
     return await db.rawQuery('SELECT * FROM goods_issue_products WHERE goods_issue_id = ?', [goodsIssueId]);
   }
 
-  Future<List<Map<String, dynamic>>> getGoodsIssueProductSerialNumbers(int goodsIssueId, String itemCode) async {
+  Future<List<Map<String, dynamic>>> getGoodsIssueProduct(int goodsIssueId, String itemCode) async {
     final db = await database;
     return await db.rawQuery('SELECT * FROM goods_issue_products WHERE goods_issue_id = ? AND item_code = ?', [goodsIssueId, itemCode]);
+  }
+
+  Future<List<Map<String, dynamic>>> getGoodsIssueProductSerialNumbers(int goodsIssueProductId) async {
+    final results = await queryRaw('SELECT * FROM goods_issue_product_serial_numbers WHERE goods_issue_product_id = ?', [goodsIssueProductId]);
+
+    if (results.isNotEmpty) {
+      return results;
+    } else {
+      return [];
+    }
   }
 
   Future<void> insertGoodsIssueProduct(int goodsIssueId, String itemCode, String serialNumber) async {
     await insertRaw('INSERT INTO goods_issue_products (goods_issue_id, item_code, serial_number) VALUES (?, ?, ?)', [goodsIssueId, itemCode, serialNumber],);
   }
 
-  Future<void> deleteGoodsIssueProduct(int goodsIssueId, String itemCode, String serialNumber) async {
-    await deleteRaw('DELETE FROM goods_issue_products WHERE goods_issue_id = ? AND item_code = ? AND serial_number = ?', [goodsIssueId, itemCode, serialNumber]);
+  Future<void> insertGoodsIssueProductSerialNumber(int goodsIssueProductId, String serialNumber) async {
+    // check if the serial number already exists
+    final db = await database;
+    var results = await db.rawQuery('SELECT * FROM goods_issue_product_serial_numbers WHERE goods_issue_product_id = ? AND serial_number = ?', [goodsIssueProductId, serialNumber]);
+
+    if(results.isNotEmpty){
+      return;
+    }
+    // insert the data into the goods_issue_product_serial_numbers table
+    await insertRaw('INSERT INTO goods_issue_product_serial_numbers (goods_issue_product_id, serial_number) VALUES (?,?)', [
+      goodsIssueProductId, serialNumber
+    ],);
+  }
+
+  Future<void> deleteGoodsIssueProductSerialNumber(int goodsIssueProductId, String serialNumber) async {
+    await deleteRaw('DELETE FROM goods_issue_product_serial_numbers WHERE goods_issue_product_id = ? AND serial_number = ?', [goodsIssueProductId, serialNumber]);
   }
 
   Future<void> deleteGoodsIssue(int goodsIssueId) async {
-    await deleteRaw('DELETE FROM goods_issue_scan WHERE id = ?', [goodsIssueId]);
-
+    // Delete serial numbers first (must be done before deleting products due to foreign key constraints)
+    await deleteRaw('DELETE FROM goods_issue_product_serial_numbers WHERE goods_issue_product_id IN (SELECT id FROM goods_issue_products WHERE goods_issue_id = ?)', [goodsIssueId]);
+    
+    // Delete products second
     await deleteRaw('DELETE FROM goods_issue_products WHERE goods_issue_id = ?', [goodsIssueId]);
+    
+    // Delete the main goods issue record last
+    await deleteRaw('DELETE FROM goods_issue_scan WHERE id = ?', [goodsIssueId]);
   }
 
   Future<int> getOrCreateStockTransferScan(String stockTransferNumber) async {
@@ -395,9 +482,111 @@ class DatabaseHelper {
   }
 
   Future<void> deleteStockTransfer(int stockTransferId) async {
-    await deleteRaw('DELETE FROM stock_transfer_scan WHERE id = ?', [stockTransferId]);
-
+    // Delete products first (child records)
     await deleteRaw('DELETE FROM stock_transfer_products WHERE stock_transfer_id = ?', [stockTransferId]);
+    
+    // Delete the main stock transfer record last
+    await deleteRaw('DELETE FROM stock_transfer_scan WHERE id = ?', [stockTransferId]);
   }
   
+  Future<int?> getPhysicalStockCount(String stockCountNumber) async {
+    final existingData = await queryRaw('SELECT * FROM physical_stock_take WHERE stock_count_number = ?', [stockCountNumber]);
+
+    if (existingData.isNotEmpty) {
+      return existingData.first['id'];
+    }
+
+    return null;
+  }
+
+  Future<int> getOrCreatePhysicalStockCount(String stockCountNumber, int createdBy, String createdByName, String stockCountType, String showroomName, String warehouseName, String warehouseCode, String physicalStockCountTypeName) async {
+    final existingData = await queryRaw('SELECT * FROM physical_stock_take WHERE stock_count_number = ?', [stockCountNumber]);
+
+    if (existingData.isNotEmpty) {
+      return existingData.first['id'];
+    }
+
+    // Insert a new physical stock count record
+    return await insertRaw('INSERT INTO physical_stock_take (stock_count_number, created_by, created_by_name, stock_count_type, showroom_name, warehouse_name, warehouse_code, physical_stock_count_type_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+    [
+      stockCountNumber, createdBy, createdByName, stockCountType, showroomName, warehouseName, warehouseCode, physicalStockCountTypeName
+    ]);
+  }
+
+  Future<List<Map<String, dynamic>>> getPhysicalStockCountProducts(int physicalStockCountId) async {
+    final results = await queryRaw('SELECT * FROM physical_stock_take_products WHERE physical_stock_count_id = ?', [physicalStockCountId]);
+
+    if (results.isNotEmpty) {
+      return results;
+    } else {
+      return [];
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> getPhysicalStockCountProduct(int physicalStockCountId, String barcode) async {
+    final results = await queryRaw('SELECT * FROM physical_stock_take_products WHERE physical_stock_count_id = ? AND barcode = ?', [physicalStockCountId, barcode]);
+
+    if (results.isNotEmpty) {
+      return results;
+    } else {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOrCreateStockTakeProduct(int physicalStockCountId, String barcode, String itemCode, String itemName, String itemGroup, String itemBrand, String itemPictureName, String modelNumber) async {
+    final results = await queryRaw('SELECT * FROM physical_stock_take_products WHERE physical_stock_count_id = ? AND item_code = ?', [physicalStockCountId, itemCode]);
+
+    if (results.isNotEmpty) {
+      return results;
+    } else {
+      // Insert a new stock take product record
+      await insertRaw('INSERT INTO physical_stock_take_products (physical_stock_count_id, barcode, item_code, item_name, item_group, item_brand, item_picture_name, model_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [
+        physicalStockCountId, barcode, itemCode, itemName, itemGroup, itemBrand, itemPictureName, modelNumber
+      ]);
+      return await queryRaw('SELECT * FROM physical_stock_take_products WHERE physical_stock_count_id = ? AND item_code = ?', [physicalStockCountId, itemCode]);
+    }
+  }
+
+  Future<void> insertStockTakeProductSerialNumber(int physicalStockCountProductId, String serialNumber) async {
+    await insertRaw('INSERT INTO physical_stock_take_serial_numbers (physical_stock_count_product_id, serial_number) VALUES (?, ?)', [physicalStockCountProductId, serialNumber],);
+  }
+
+  Future<List<Map<String, dynamic>>> getStockTakeProductSerialNumbers(int physicalStockCountProductId) async {
+    return await queryRaw('SELECT * FROM physical_stock_take_serial_numbers WHERE physical_stock_count_product_id = ?', [physicalStockCountProductId]);
+  }
+
+  Future<void> deleteStockTakeProductSerialNumber(int physicalStockCountProductId, String serialNumber) async {
+    await deleteRaw('DELETE FROM physical_stock_take_serial_numbers WHERE physical_stock_count_product_id = ? AND serial_number = ?', [physicalStockCountProductId, serialNumber]);
+  }
+
+  Future<void> clearPhysicalStockCountProducts(int physicalStockCountId) async {
+    // Delete serial numbers first (must be done before deleting products due to foreign key constraints)
+    await deleteRaw('DELETE FROM physical_stock_take_serial_numbers WHERE physical_stock_count_product_id IN (SELECT id FROM physical_stock_take_products WHERE physical_stock_count_id = ?)', [physicalStockCountId]);
+    
+    // Delete products second
+    await deleteRaw('DELETE FROM physical_stock_take_products WHERE physical_stock_count_id = ?', [physicalStockCountId]);
+    
+    // Delete the main physical stock take record last
+    await deleteRaw('DELETE FROM physical_stock_take WHERE id = ?', [physicalStockCountId]);
+  }
+
+  Future<void> removePhysicalStockCountProduct(int physicalStockCountId, String barcode) async {
+    // First get the product ID
+    var productResult = await queryRaw(
+      'SELECT id FROM physical_stock_take_products WHERE physical_stock_count_id = ? AND barcode = ?',
+      [physicalStockCountId, barcode]
+    );
+    
+    if (productResult.isNotEmpty) {
+      int productId = productResult.first['id'];
+      
+      // Delete all serial numbers for this product
+      await deleteRaw('DELETE FROM physical_stock_take_serial_numbers WHERE physical_stock_count_product_id = ?', [productId]);
+      
+      // Delete the product record
+      await deleteRaw('DELETE FROM physical_stock_take_products WHERE id = ?', [productId]);
+    }
+  }
+
 }

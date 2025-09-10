@@ -9,9 +9,11 @@ import 'package:provider/provider.dart';
 
 import '../../../components/dynamic_widgets.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/printer_layout_modal.dart';
+import '../../../modals/sales_order_delivery_notes_modal.dart';
 import '../../../modals/sales_order_details_modal.dart';
 import '../../../modals/showroom_modal.dart';
 import '../../../providers/session_provider.dart';
@@ -36,6 +38,7 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
   SalesOrderDetailsModal? salesOrderDetailsObj;
   
   List<PrinterLayoutModal> printerLayoutList = [];
+  List<SalesOrderDeliveryNotesModal> invoiceDeliveryNumbersList = [];
   
   @override
   void initState() {
@@ -49,6 +52,8 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
     fetchSalesOrderDetails();
+
+    fetchInvoiceDeliveryNumbers();
   }
 
   Future<void> fetchSalesOrderDetails() async {
@@ -234,6 +239,44 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
     );
   }
 
+  // Future<void> uploadSaleOrderData(String receiptNumber, XFile? capturedImage) async {
+  //   if (capturedImage == null) {
+  //     dynamicMaster.displayError(context, "Error", "No image captured.");
+  //     return;
+  //   }
+
+  //   try {
+  //     var token = await sessionProvider.authProvider.token;
+  //     if (token == null) {
+  //       dynamicMaster.displayError(context, "Error", "No valid session token.");
+  //       return;
+  //     }
+
+  //     dynamicMaster.displayLoadingModal(context);
+  //     var response = await apiService.processSalesOrderUpdate(
+  //       token,
+  //       receiptNumber,
+  //       salesOrderDetailsObj!.saleOrderNumber.toString(),
+  //       capturedImage
+  //     );
+      
+  //     Navigator.pop(context); // Close loading modal
+
+  //     if (response.statusCode == 200) {
+  //       var data = jsonDecode(response.body);
+  //       if (data['status'] == 'success') {
+  //         dynamicMaster.displaySuccessMessage(context, data['message']);
+  //       } else {
+  //         dynamicMaster.displayError(context, "Error", data['message']);
+  //       }
+  //     } else {
+  //       dynamicMaster.displayError(context, "Error", "Failed: ${response.statusCode}");
+  //     }
+  //   } catch (e) {
+  //     Navigator.pop(context);
+  //     dynamicMaster.displayError(context, "Error", "Upload failed: $e");
+  //   }
+  // }
 
   /// Uploads sale order data including receipt number and an optional image to the backend API.
   /// 
@@ -264,13 +307,19 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
         return;
       }
 
+      if (capturedImage == null || capturedImage.path.isEmpty) {
+        dynamicMaster.displayError(context, "Error", "No image captured.");
+        return;
+      }
+
       dynamicMaster.displayLoadingModal(context);
 
-      var response = await  apiService.processSalesOrderUpdate(token, payload);
+      var response = await  apiService.processSalesOrderUpdate(token, receiptNumber, salesOrderDetailsObj!.saleOrderNumber.toString(), capturedImage);
+      // var response = await  apiService.processSalesOrderUpdate(token, payload);
 
       Navigator.pop(context);
 
-      if (response["status"] == "success" && response["data"].length > 0) {
+      if (response["status"] == "success") {
         dynamicMaster.displaySuccessMessage(context, response["message"]);
       } else {
         dynamicMaster.displayError(context, "Error", response["message"]);
@@ -323,10 +372,114 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
     
   }
 
+  Future<void> fetchInvoiceDeliveryNumbers() async{
+    setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+      var response = await  apiService.fetchSalesOrderDeliveryNumbers(widget.salesOrderNumber, token);
+
+      if (response["status"] == "success" && response["data"] != null) {
+        for (var data in response["data"]) {
+          SalesOrderDeliveryNotesModal deliveryNote = salesOrderDeliveryNotesModalFromJson(jsonEncode(data));
+          invoiceDeliveryNumbersList.add(deliveryNote);
+        }
+        setState(() {
+          invoiceDeliveryNumbersList = invoiceDeliveryNumbersList;
+        });
+      } else {
+        // dynamicMaster.displayError(context, "Error", response["message"]);
+      }
+      
+    } catch (e) {
+      print(e);
+    }
+    setState(() { isLoading = false; });
+
+  }
+
+  Widget _buildActionButton(){
+    return RoundedButton(btnText: "View Delivery Note", press: () { displayDeliveryNoteBotomSheet();},  btnColor: kPrimaryColor, textColor: Colors.white );
+  }
+
+  Future<void> displayDeliveryNoteBotomSheet() async {
+    Size size = MediaQuery.of(context).size;
+    Widget closeButtonWidget = IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close));
+    
+    return showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Container(
+              height: size.height * 0.5,
+              width: size.width,
+              margin: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Image.asset("assets/images/azone.png", height: 50, width: 50,),
+                      closeButtonWidget
+                    ],
+                  ),
+                  SizedBox(height: size.height * 0.02,),
+                  const Text("Invoice Delivery Notes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+                  const Divider(height: 10, thickness: 1,),
+                  SizedBox(height: size.height * 0.02,),
+                  Expanded(
+                    child: invoiceDeliveryNumbersList.isEmpty ?
+                    Center(
+                      child: Column(
+                        children: [
+                          const Text("No delivery notes found for this sales order."),
+                          SizedBox(height: size.height * 0.02,),
+                          RoundedButton(
+                            btnText: "Copy to Delivery Note", 
+                            press: () {
+                              Navigator.pushNamed(context, "/sales_oder_delivery", arguments: salesOrderDetailsObj!);
+                            }, 
+                            btnColor: kSecondaryColor, 
+                            textColor: Colors.white
+                          ),
+                        ],
+                      ),
+                    ) :
+                    ListView.builder(
+                      itemCount: invoiceDeliveryNumbersList.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Text(invoiceDeliveryNumbersList[index].deliveryNumber.toString()),
+                          subtitle: Text(DateFormat('dd-MMMM-yyyy').format(invoiceDeliveryNumbersList[index].deliveryDate)),
+                          onTap: () {
+                            Navigator.pushNamed(context, "/delivery_details", arguments: invoiceDeliveryNumbersList[index].deliveryNumber.toString());
+                          },
+                        );
+                      },
+                    ),
+                  )
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    return Container(
+    return SizedBox(
       height: size.height,
       width: size.width,
       child: isLoading ? 
@@ -368,7 +521,7 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
                                 // SizedBox(height: size.height * 0.01,),
                                 Text(DateFormat('dd-MMMM-yyyy').format(salesOrderDetailsObj!.documentDate), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                                 // SizedBox(height: size.height * 0.01,),
-                                Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(salesOrderDetailsObj!.docTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
+                                Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(salesOrderDetailsObj!.docTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                               ],
                             ),
                             SizedBox(
@@ -481,6 +634,8 @@ class _SalesOrderDetailsBodyState extends State<SalesOrderDetailsBody> {
                 ],
               ),
             ),
+            SizedBox(height: size.height * 0.02,),
+            _buildActionButton()
           ],
         ),
       )

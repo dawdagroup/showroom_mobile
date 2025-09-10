@@ -23,7 +23,7 @@ class GoodsIssueCreateBody extends StatefulWidget {
 }
 
 class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
-  final StockTransferController stockTransferController = Get.put(StockTransferController());
+  late final StockTransferController stockTransferController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -38,6 +38,7 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
     // TODO: implement initState
     super.initState();
 
+    stockTransferController = Get.put(StockTransferController(), tag: widget.transferNumber);
     stockTransferController.stockTransferNumber.value = widget.transferNumber;
   }
   
@@ -49,6 +50,13 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
     getStockTransferDetails();
 
     stockTransferController.loadScans();
+  }
+  
+  @override
+  void dispose() {
+    // Clean up the tagged controller when the widget is disposed
+    Get.delete<StockTransferController>(tag: widget.transferNumber);
+    super.dispose();
   }
   
   Future<void> getStockTransferDetails() async {
@@ -171,7 +179,10 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
                     child: ListView.builder(
                       itemCount: stockTransferDetailsModal!.products.length,
                       itemBuilder: (context, index) {
-                        return GoodsIssueCreateProductCard(product: stockTransferDetailsModal!.products[index],);
+                        return GoodsIssueCreateProductCard(
+                          product: stockTransferDetailsModal!.products[index],
+                          transferNumber: widget.transferNumber,
+                        );
                       },
                     ),
                   ),

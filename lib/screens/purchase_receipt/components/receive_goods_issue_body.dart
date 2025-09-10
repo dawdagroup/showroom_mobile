@@ -21,7 +21,7 @@ class ReceiveGoodsIssueBody extends StatefulWidget {
 }
 
 class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
-  final GoodsIssueController goodsIssueController = Get.put(GoodsIssueController());
+  late final GoodsIssueController goodsIssueController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -33,8 +33,6 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
     // TODO: implement initState
     super.initState();
 
-    // Set the goods issue number in the controller.
-    goodsIssueController.goodsIssueNumber.value = widget.goodsIssueDetailsObj.documentNumber.toString();
   }
 
   @override
@@ -42,7 +40,13 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
-    goodsIssueController.loadScans();
+    initializeScreen();
+  }
+
+  Future<void> initializeScreen() async {
+
+    goodsIssueController = Get.put(GoodsIssueController(widget.goodsIssueDetailsObj), tag: widget.goodsIssueDetailsObj.documentNumber.toString());
+
   }
 
   Future<void> submitGoodsIssue() async {
@@ -76,14 +80,22 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
 
       var response = await apiService.processGoodsIssueReceipt(token, queryParameters);
 
+      print("Response: $response");
+
       Navigator.pop(context);
 
       if(response["status"] == "success"){
-        dynamicMaster.displaySuccessMessage(context, response["message"]);
-        goodsIssueController.clearScans();
+        // Clear scans first before showing success message
+        await goodsIssueController.clearScans();
+        
+        // Use a default message if none provided
+        String successMessage = response["message"] ?? "Goods issue submitted successfully";
+        dynamicMaster.displaySuccessMessage(context, successMessage);
 
         // wait 2 second then navigate to password update screen
         await Future.delayed(const Duration(seconds: 2), () {
+          // Dispose the controller before navigation
+          Get.delete<GoodsIssueController>(tag: widget.goodsIssueDetailsObj.documentNumber.toString());
           Navigator.pushReplacementNamed(context, '/receive_goods');
         });
       }else{
@@ -93,7 +105,13 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
     } catch (e) {
       dynamicMaster.displayError(context, "Error", "Error: ${e.toString()}");
     }
+  }
 
+  @override
+  void dispose() {
+    // Cleanup the controller when leaving the screen
+    Get.delete<GoodsIssueController>(tag: widget.goodsIssueDetailsObj.documentNumber.toString());
+    super.dispose();
   }
 
   @override
@@ -116,7 +134,7 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: size.height * 0.01,),
-                    const Text("Goods Issue", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryLightColor),),
+                    const Text("Goods Issue Receipt", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryLightColor),),
                     SizedBox(height: size.height * 0.01,),
                     Text("Doc No: ${widget.goodsIssueDetailsObj.documentNumber.toString()}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryLightColor),),
                     SizedBox(height: size.height * 0.01,),
@@ -140,7 +158,10 @@ class _ReceiveGoodsIssueBodyState extends State<ReceiveGoodsIssueBody> {
                         if (widget.goodsIssueDetailsObj.lineItems[index].itemOpenQuantity <= 0) {
                           return Container();
                         }
-                        return GoodsIssueProductCard(goodsIssueDetailsLineItem: widget.goodsIssueDetailsObj.lineItems[index],);
+                        return GoodsIssueProductCard(
+                          goodsIssueDetailsLineItem: widget.goodsIssueDetailsObj.lineItems[index],
+                          goodsIssueNumber: widget.goodsIssueDetailsObj.documentNumber.toString(),
+                        );
                       },
                     ),
                   ),

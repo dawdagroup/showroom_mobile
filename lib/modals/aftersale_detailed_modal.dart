@@ -177,6 +177,8 @@ class MovementsLine {
     dynamic aftersalesRemarks;
     dynamic aftersalesAttachment;
     dynamic aftersalesMoveTypeDetails;
+    dynamic accessoriesMissingType;
+    dynamic accessoriesMissingDetails;
 
     MovementsLine({
         required this.aftersalesCollectionNo,
@@ -190,6 +192,9 @@ class MovementsLine {
         required this.aftersalesRemarks,
         required this.aftersalesAttachment,
         required this.aftersalesMoveTypeDetails,
+        required this.accessoriesMissingType,
+        required this.accessoriesMissingDetails,
+
     });
 
     factory MovementsLine.fromJson(Map<String, dynamic> json) => MovementsLine(
@@ -204,6 +209,8 @@ class MovementsLine {
         aftersalesRemarks: json["aftersalesRemarks"],
         aftersalesAttachment: json["aftersalesAttachment"],
         aftersalesMoveTypeDetails: json["aftersalesMoveTypeDetails"],
+        accessoriesMissingType: json["accessoriesMissingType"],
+        accessoriesMissingDetails: json["accessoriesMissingDetails"],
     );
 
     Map<String, dynamic> toJson() => {
@@ -218,6 +225,8 @@ class MovementsLine {
         "aftersalesRemarks": aftersalesRemarks,
         "aftersalesAttachment": aftersalesAttachment,
         "aftersalesMoveTypeDetails": aftersalesMoveTypeDetails,
+        "accessoriesMissingType": accessoriesMissingType,
+        "accessoriesMissingDetails": accessoriesMissingDetails,
     };
 }
 

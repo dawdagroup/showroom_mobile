@@ -10,6 +10,7 @@ import 'package:showroom_manager/components/rounded_buttons.dart';
 import 'package:showroom_manager/constant/constants.dart';
 
 import '../../../components/dynamic_widgets.dart';
+import '../../../config/config.dart';
 import '../../../controllers/cart_controller.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/product_modal.dart';
@@ -26,6 +27,7 @@ class StockTransferForm extends StatefulWidget {
 }
 
 class _StockTransferFormState extends State<StockTransferForm> with WidgetsBindingObserver {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final CartController cartController;
   
   ApiService apiService = ApiService();
@@ -103,7 +105,7 @@ class _StockTransferFormState extends State<StockTransferForm> with WidgetsBindi
         return;
       }
 
-      Map<String, dynamic> output = await apiService.getStockTransferTypes(token, {});
+      Map<String, dynamic> output = await apiService.getStockTransferTypes(token, {"status" : "active"});
 
       if(output["status"] == "success"){
         List<StockTransferTypeModal> minStockTransferType = [];
@@ -550,6 +552,7 @@ class _StockTransferFormState extends State<StockTransferForm> with WidgetsBindi
       }
 
     } catch (e) {
+      print(e);
       Navigator.of(context).pop();
       dynamicMaster.displayError(context, "Error", e.toString());
     }
@@ -559,7 +562,8 @@ class _StockTransferFormState extends State<StockTransferForm> with WidgetsBindi
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(Theme.of(context), context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(Theme.of(context), context, _scaffoldKey),
       body: SizedBox(
         height: size.height,
         width: size.width,
@@ -642,7 +646,7 @@ class _StockTransferFormState extends State<StockTransferForm> with WidgetsBindi
                                   ),
                                   SizedBox(height: size.height * 0.01),
                                   Text(
-                                    'RRP: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(product.priceInclusiveVat)}',
+                                    'RRP: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(product.priceInclusiveVat)}',
                                     style: const TextStyle(
                                       fontSize: 16, 
                                       fontWeight: FontWeight.bold,

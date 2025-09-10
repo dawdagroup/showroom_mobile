@@ -28,6 +28,7 @@ import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../components/labeled_text_field.dart';
 import 'product_serial_number_confirmation.dart';
+import '../../../config/config.dart';
 
 
 class CheckoutScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CartController controller = Get.find();
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
@@ -77,10 +79,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isPointsRedemptionOTPValidated = false;
   bool isCouponOTPValidated = false;
 
-  double amountPaid = 0.0;
-  double paymentBalance = 0.0;
-  double totalAmount = 0.0;
-  double discountAmount = 0.0;
+  double amountPaid = 0;
+  double paymentBalance = 0;
+  double totalAmount = 0;
+  double discountAmount = 0;
 
   int _currentStep = 0;
   List<bool> stepErrors = [false, false, false];
@@ -126,67 +128,71 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> initScreen() async {
-    focusNode.addListener(() async {
-      if (!focusNode.hasFocus) {
-        if(customerPhoneController.text.isNotEmpty){
-          var token = await sessionProvider.authProvider.token;
-          if(token == null){
-            dynamicMaster.displayError(context, "Session Expired!", "Please login to continue.");
-            return;
-          }
-          Map<String, dynamic> filters = {
-            'phone_number': "+254${customerPhoneController.text}",
-            'status': "active",
-          };
-          setState(() {
-            customer = null;
-            customerNameController.clear();
-            customerEmailController.clear();
-            customerAddressController.clear();
-          });
-          var response = await apiService.filterCustomers(token, filters);
-          try {
-            if(response.isNotEmpty && response["status"] == "success"){
-              var data = response["data"];
-              setState(() { customer = customerModalFromJson(jsonEncode(data[0])); });
-
-              customerNameController.text = data[0]["first_name"] + " " + data[0]["last_name"];
-              customerEmailController.text = data[0]["email"];
-              customerAddressController.text = data[0]["address"];
-
-              fetchCustomerHistory(customer!);
-            }else{
-              dynamicMaster.displayError(context, "Error", response["message"]);
+    try {
+      focusNode.addListener(() async {
+        if (!focusNode.hasFocus) {
+          if(customerPhoneController.text.isNotEmpty){
+            var token = await sessionProvider.authProvider.token;
+            if(token == null){
+              dynamicMaster.displayError(context, "Session Expired!", "Please login to continue.");
+              return;
             }
-          } catch (e) {
-            dynamicMaster.displayError(context, "Error", "An error occurred while fetching customer details");
+            Map<String, dynamic> filters = {
+              'phone_number': "${Config.regionPhonePrefix}${customerPhoneController.text}",
+              'status': "active",
+            };
+            setState(() {
+              customer = null;
+              customerNameController.clear();
+              customerEmailController.clear();
+              customerAddressController.clear();
+            });
+            var response = await apiService.filterCustomers(token, filters);
+            try {
+              if(response.isNotEmpty && response["status"] == "success"){
+                var data = response["data"];
+                setState(() { customer = customerModalFromJson(jsonEncode(data[0])); });
+
+                customerNameController.text = data[0]["first_name"] + " " + data[0]["last_name"];
+                customerEmailController.text = data[0]["email"];
+                customerAddressController.text = data[0]["address"];
+
+                fetchCustomerHistory(customer!);
+              }else{
+                // dynamicMaster.displayError(context, "Error", response["message"]);
+              }
+            } catch (e) {
+              // dynamicMaster.displayError(context, "Error", "An error occurred while fetching customer details");
+            }
           }
         }
-      }
-    });
-
-    var businessPartner = await _dbHelper.getBusinessPartners();
-
-    if(businessPartner.isNotEmpty){
-      // print("Business Partners: ${businessPartner}");  
-      List<BusinessPartnerModal> newBusinessPartnersList = [];
-      for (var element in businessPartner) {
-        try {
-          newBusinessPartnersList.add(businessPartnerModalFromJson(jsonEncode(element)));
-        } catch (e) {
-          print("Error: ${e}");
-        }
-      }
-      setState(() {
-        businessPartnersList = newBusinessPartnersList;
       });
-    }else{
-      dynamicMaster.displayError(context, "Error", "No business partners found");
-    }
 
-    setState(() {
-      totalAmount = controller.total;
-    });
+      var businessPartner = await _dbHelper.getBusinessPartners();
+
+      if(businessPartner.isNotEmpty){
+        // print("Business Partners: ${businessPartner}");  
+        List<BusinessPartnerModal> newBusinessPartnersList = [];
+        for (var element in businessPartner) {
+          try {
+            newBusinessPartnersList.add(businessPartnerModalFromJson(jsonEncode(element)));
+          } catch (e) {
+            print("Error: ${e}");
+          }
+        }
+        setState(() {
+          businessPartnersList = newBusinessPartnersList;
+        });
+      }else{
+        dynamicMaster.displayError(context, "Error", "No business partners found");
+      }
+
+      setState(() {
+        totalAmount = controller.total;
+      });
+    } catch (e) {
+      print("Error fetching token: $e");
+    }
   }
 
   Future<void> fetchCustomerHistory(CustomerModal customer) async {
@@ -274,7 +280,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     if(totalDiscountPercentage > 0){
       for (var product in controller.products.keys.toList()) {
-        double vatRate = product.selectedTaxGroup != null ? product.selectedTaxGroup!.rate / 100 : 0.16;
+        double vatRate = product.selectedTaxGroup != null ? product.selectedTaxGroup!.rate / 100 : Config.defaultVatRate;
 
         double newProductDicountPecentage = product.discount + totalDiscountPercentage;
 
@@ -611,12 +617,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         dynamicMaster.displayError(context, "Error", "Please fill in all the required fields");
         return;
       }
-      if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(customerPhoneController.text)) {
+      if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(customerPhoneController.text) && Config.releaseRegion == "KENYA") {
         setState(() {
           stepErrors[0] = true;
           submitFormState = false;
         });
         dynamicMaster.displayError(context, "Error", "Please enter a valid Kenyan phone number");
+        return;
+      }
+      if (Config.releaseRegion == "UGANDA" && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(customerPhoneController.text)) {
+        setState(() {
+          stepErrors[0] = true;
+          submitFormState = false;
+        });
+        dynamicMaster.displayError(context, "Error", "Please enter a valid Ugandan phone number");
         return;
       }
       if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(customerEmailController.text)) {
@@ -694,7 +708,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             stepErrors[1] = true;
             submitFormState = false;
           });
-          dynamicMaster.displayError(context, "Error", "Amount paid is less than the total amount. Kindly top up ${NumberFormat.currency(name: "KES", decimalDigits: 2).format(paymentBalance)}");
+          dynamicMaster.displayError(context, "Error", "Amount paid is less than the total amount. Kindly top up ${NumberFormat.currency(name: Config.defaultCurrency, decimalDigits: 2).format(paymentBalance)}");
           return;
         }
         if(paymentBalance.toInt() < 0 && paymentBalance.abs() > 1000){
@@ -702,7 +716,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             stepErrors[1] = true;
             submitFormState = false;
           });
-          dynamicMaster.displayError(context, "Error", "Invoice change cannot be more than KES 1,000.00");
+          dynamicMaster.displayError(context, "Error", "Invoice change cannot be more than ${Config.defaultCurrency} 1,000.00");
           return;
         }
       }
@@ -844,7 +858,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     Map<String, dynamic> filtersParam = {
       "customerName": customerNameController.text,
       "customerEmail": customerEmailController.text,
-      "customerPhone": "+254${customerPhoneController.text}",
+      "customerPhone": "${Config.regionPhonePrefix}${customerPhoneController.text}",
       "customerAddress": customerAddressController.text,
       "customerID": customerIDController.text,
       "customerKraPin": customerKraPinController.text,
@@ -925,7 +939,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       dynamicMaster.displayLoadingModal(context);
 
       Map<String, dynamic> filtersParam = {
-        "phone_number": "+254${customerPhoneController.text}",
+        "phone_number": "${Config.regionPhonePrefix}${customerPhoneController.text}",
         "points_redeemed": pointsAmountPaidController.text,
       };
 
@@ -1010,7 +1024,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ElevatedButton(
                               onPressed: (){
                                 Navigator.pop(context);
-                                validatePointsRedemptionOTP(pointsRedemptionOTPController.text, "+254${customerPhoneController.text}");
+                                validatePointsRedemptionOTP(pointsRedemptionOTPController.text, "${Config.regionPhonePrefix}${customerPhoneController.text}");
                               }, 
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueAccent,
@@ -1085,7 +1099,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         borderSide: BorderSide(),
                     ),
                 ),
-                initialCountryCode: 'KE',
+                initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                 controller: customerPhoneController,
                 onChanged: (phone) {
                 },
@@ -1095,9 +1109,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     return 'Please enter a phone number';
                   }
 
-                  if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
-                    return 'Please enter a valid Kenyan phone number';
+                  if(Config.releaseRegion == "KENYA"){
+
+                    if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
+                      return 'Please enter a valid Kenyan phone number';
+                    }
+                  } else if(Config.releaseRegion == "TANZANIA"){
+
+                    if (!RegExp(r'^(\+255|255)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
+                      return 'Please enter a valid Tanzanian phone number';
+                    }
+                  } else if(Config.releaseRegion == "UGANDA"){
+
+                    if (!RegExp(r'^(\+256|256)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
+                      return 'Please enter a valid Ugandan phone number';
+                    }
                   }
+
                   return null;
                 },
               ),
@@ -1242,23 +1270,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   fontSize: 14,
                   fontWeight: FontWeight.bold
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Customer KRA PIN (optional)',
-                  border: OutlineInputBorder(
+                decoration: InputDecoration(
+                  labelText: 'Customer ${Config.taxPinName} (optional)',
+                  border: const OutlineInputBorder(
                     borderSide: BorderSide(),
                   ),
-                  labelStyle: TextStyle(
+                  labelStyle: const TextStyle(
                     color: kPrimaryColor,
                     fontSize: 14,
                     fontWeight: FontWeight.bold
                   ),
-                  enabledBorder: OutlineInputBorder(
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       width: 1,
                       color: Colors.grey
                     )
                   ),
-                  focusedBorder: OutlineInputBorder(
+                  focusedBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       width: 1.5,
                       color: kPrimaryColor
@@ -1605,23 +1633,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold
                                     ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Total Amount to Redeem in Ksh.',
-                                      border: OutlineInputBorder(
+                                    decoration: InputDecoration(
+                                      labelText: 'Total Amount to Redeem in ${Config.defaultCurrency}.',
+                                      border: const OutlineInputBorder(
                                         borderSide: BorderSide(),
                                       ),
-                                      labelStyle: TextStyle(
+                                      labelStyle: const TextStyle(
                                         color: kPrimaryColor,
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold
                                       ),
-                                      enabledBorder: OutlineInputBorder(
+                                      enabledBorder: const OutlineInputBorder(
                                         borderSide: BorderSide(
                                           width: 1,
                                           color: Colors.grey
                                         )
                                       ),
-                                      focusedBorder: OutlineInputBorder(
+                                      focusedBorder: const OutlineInputBorder(
                                         borderSide: BorderSide(
                                           width: 1.5,
                                           color: kPrimaryColor
@@ -1770,7 +1798,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     controller: shippingChargesController,
-                    readOnly: true,
                     onChanged: (value) {
                       calculatePaymentBalance();
                     },
@@ -1854,7 +1881,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Text("Discount Amount:", style: TextStyle(fontWeight: FontWeight.bold), ),
                       Text(
-                        NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(discountAmount), 
+                        NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(discountAmount), 
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), 
                       ),
                     ],
@@ -1865,7 +1892,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Text("Grand Total:", style: TextStyle(fontWeight: FontWeight.bold), ),
                       Text(
-                        NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(totalAmount), 
+                        NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(totalAmount), 
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), 
                       ),
                     ],
@@ -1876,7 +1903,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Text("Amount Paid:", style: TextStyle(fontWeight: FontWeight.bold), ),
                       Text(
-                        NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(amountPaid), 
+                        NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(amountPaid), 
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), 
                       ),
                     ],
@@ -1887,7 +1914,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Text("Balance Due:", style: TextStyle(fontWeight: FontWeight.bold), ),
                       Text(
-                        NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(paymentBalance),  
+                        NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(paymentBalance),  
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.red), 
                       ),
                     ],
@@ -1913,7 +1940,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ThemeData theme = Theme.of(context);
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: Container(
         height: size.height,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -2023,7 +2051,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       child: ListTile(
                                         title: Text(transactionList[index].invoiceNumber),
                                         subtitle: Text(DateFormat('dd-MMMM-yyyy').format(transactionList[index].createdAt)),
-                                        trailing: Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(transactionList[index].totalAmount)),
+                                        trailing: Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(transactionList[index].totalAmount)),
                                       ),
                                     );
                                   },
@@ -2067,7 +2095,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        "Purchase Todate: ${customerPoints == null ? "0.00" : NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format((customerPoints!.pointsEarned * 100))}",
+                                        "Purchase Todate: ${customerPoints == null ? "0.00" : NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format((customerPoints!.pointsEarned * 100))}",
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 18

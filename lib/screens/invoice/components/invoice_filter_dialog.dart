@@ -6,6 +6,7 @@ import 'package:intl_phone_field/phone_number.dart';
 import '../../../components/filter_params.dart';
 import '../../../components/labeled_text_field.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 
 class InvoiceFilterDialog extends StatefulWidget {
@@ -184,7 +185,7 @@ class _InvoiceFilterDialogState extends State<InvoiceFilterDialog> {
                         labelText: 'Phone Number',
                         border: OutlineInputBorder(),
                       ),
-                      initialCountryCode: 'KE',
+                      initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                       controller: phoneNumberInputController,
                       onChanged: (phone) {},
                       disableLengthCheck: true,

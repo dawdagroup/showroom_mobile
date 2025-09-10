@@ -21,7 +21,7 @@ class ReceivePoBody extends StatefulWidget {
 }
 
 class _ReceivePoBodyState extends State<ReceivePoBody> {
-  final PurchaseOderController purchaseOderController = Get.put(PurchaseOderController());
+  late final PurchaseOderController purchaseOderController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -33,8 +33,6 @@ class _ReceivePoBodyState extends State<ReceivePoBody> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    // Set the purchase order number in the controller.
-    purchaseOderController.purchaseOrderNumber.value = widget.purchaseOrderDetailsObj.documentNumber.toString();
 
   }
 
@@ -43,7 +41,14 @@ class _ReceivePoBodyState extends State<ReceivePoBody> {
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
-    purchaseOderController.loadScans();
+    initializeScreen();
+
+  }
+
+  Future<void> initializeScreen() async {
+
+    purchaseOderController = Get.put(PurchaseOderController(widget.purchaseOrderDetailsObj), tag: widget.purchaseOrderDetailsObj.documentNumber.toString());
+
   }
 
   Future<void> submitPurchaseOrder() async {
@@ -87,6 +92,8 @@ class _ReceivePoBodyState extends State<ReceivePoBody> {
 
         // wait 2 second then navigate to password update screen
         await Future.delayed(const Duration(seconds: 2), () {
+          // Dispose the controller before navigation
+          Get.delete<PurchaseOderController>(tag: widget.purchaseOrderDetailsObj.documentNumber.toString());
           Navigator.pushReplacementNamed(context, '/receive_goods');
         });
       }else{
@@ -99,6 +106,12 @@ class _ReceivePoBodyState extends State<ReceivePoBody> {
 
   }
 
+  @override
+  void dispose() {
+    // Cleanup the controller when leaving the screen
+    Get.delete<PurchaseOderController>(tag: widget.purchaseOrderDetailsObj.documentNumber.toString());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +157,10 @@ class _ReceivePoBodyState extends State<ReceivePoBody> {
                         if (widget.purchaseOrderDetailsObj.lineItems[index].itemOpenQuantity <= 0) {
                           return Container();
                         }
-                        return PurchaseOrderCard(purchaseOrderLineItem: widget.purchaseOrderDetailsObj.lineItems[index],);
+                        return PurchaseOrderCard(
+                          purchaseOrderLineItem: widget.purchaseOrderDetailsObj.lineItems[index],
+                          purchaseOrderNumber: widget.purchaseOrderDetailsObj.documentNumber.toString(),
+                        );
                       },
                     ),
                   ),

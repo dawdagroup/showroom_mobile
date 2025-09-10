@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:collection/collection.dart';
 
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -71,7 +72,11 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
         return;
       }
 
-      var response = await  apiService.getPrinterLayouts(token);
+      Map<String, dynamic> filters = {
+        "document_name": "sale_quote", // Assuming 3 is the printer type ID for sales quotations
+      };
+
+      var response = await  apiService.getPrinterLayouts(filters, token);
 
       if (response["status"] == "success" && response["data"].length > 0) {
         for (var data in response["data"]) {
@@ -170,7 +175,9 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
         ],
       );
     } else if (salesQuotationDetailsModal!.salesOrderStatus == "O" && (salesQuotationRequestModal != null && salesQuotationRequestModal!.approvalStatus == "approved" || salesQuotationRequestModal == null)) {
-      return RoundedButton(btnText: "Convert to Invoice",  press: () { displayPaymentMeansDialoge(); }, btnColor: kSecondaryColor, textColor: Colors.white);
+      return RoundedButton(btnText: "Convert to Invoice",  press: () {
+        Navigator.pushNamed(context, "/convert_to_invoice_checkout", arguments: salesQuotationDetailsModal);
+      }, btnColor: kSecondaryColor, textColor: Colors.white);
     }
     return const SizedBox();
   }
@@ -248,7 +255,7 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
                           ),
                           SizedBox(height: size.height * 0.02,),
                           RoundedButton(
-                            btnText: "Print", 
+                            btnText: "Submit", 
                             press: () { 
                               Navigator.pop(context);
                               submitSalesQuotationPrintRequest(inputLayoutController.text); 
@@ -317,7 +324,7 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
         Map<String, dynamic> filters = {};
 
         filters["layout_id"] = layout;
-        filters["printer_type_id"] = 3.toString();
+        filters["printer_type_id"] = layout;
         filters["showroom_id"] = showroomDetails.showroom_id.toString();
         filters["documentNumber"] = widget.salesQuotationNo;
         filters["documentType"] = "sales_quote";
@@ -685,7 +692,7 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
     }
 
     if((totalAmountPaid - salesQuotationDetailsModal!.salesOrderTotal) > 1000){
-      dynamicMaster.displayError(context, "Error", "Amount paid cannot  be more than Ksh 1000.");
+      dynamicMaster.displayError(context, "Error", "Amount paid cannot  be more than ${Config.defaultCurrency} 1000.");
       return;
     }
 
@@ -701,8 +708,12 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
       filters["credit_card_amount_paid"] = creditCardAmountPaid;
       filters["cash_payment_amount_paid"] = cashPaymentAmountPaid;
       filters["showroom_id"] = showroomDetails?.showroom_id.toString();
+
+      dynamicMaster.displayLoadingModal(context);
       
       var response = await apiService.processSalesQuoteToInvoice(token, filters);
+
+      Navigator.pop(context);
 
       if(response["status"] == "success"){
         dynamicMaster.displaySuccessMessage(context, "Invoice created successfully");
@@ -757,7 +768,7 @@ class _SalesQuotationDetailsBodyState extends State<SalesQuotationDetailsBody> {
                                 // SizedBox(height: size.height * 0.01,),
                                 Text(DateFormat('dd-MMMM-yyyy').format(salesQuotationDetailsModal!.salesOrderDate), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                                 // SizedBox(height: size.height * 0.01,),
-                                Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(salesQuotationDetailsModal!.salesOrderTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
+                                Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(salesQuotationDetailsModal!.salesOrderTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                               ],
                             ),
                             SizedBox(

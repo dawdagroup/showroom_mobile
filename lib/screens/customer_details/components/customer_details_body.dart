@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:showroom_manager/config/config.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../services/api_service.dart';
 import '../../../providers/session_provider.dart';
@@ -212,7 +213,7 @@ class _CustomerDetailsBodyState extends State<CustomerDetailsBody> {
                                             ),
                                             title: Text(transactionList[index].invoiceNumber),
                                             subtitle: Text(DateFormat("dd-MM-yyyy").format(transactionList[index].createdAt), style: const TextStyle(fontSize: 12),),
-                                            trailing: Text(NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(transactionList[index].totalAmount)),
+                                            trailing: Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(transactionList[index].totalAmount)),
                                           ),
                                         );
                                       },

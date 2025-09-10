@@ -7,9 +7,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../components/rounded_buttons.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../db/database_helper.dart';
 import '../../../modals/customer_points_modal.dart';
+import '../../../modals/invoice_delivery_numbers_modal.dart';
 import '../../../modals/invoice_details_modal.dart';
 import '../../../modals/payment_details_modal.dart';
 import '../../../modals/printer_address_modal.dart';
@@ -41,6 +43,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
   List<TransactionModal> loyaltyTransactionList = [];
 
   CustomerPointsModal?  customerPoints;
+  List<InvoiceDeliveryNotesModal> invoiceDeliveryNumbersList = [];
 
   @override
   void initState() {
@@ -55,19 +58,49 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
 
     fetchInvoiceDetails();
 
+    fetchInvoiceDeliveryNumbers();
+
     fetchPrinterLayouts();
 
     fetchLoyaltyTransaction();
 
   }
-
+  
   Widget _buildActionButton(){
-    if (invoiceDetailsObj!.invoiceStatus == "C"){   
-      return RoundedButton(btnText: "View Delivery Note", press: () {
-        Navigator.pushNamed(context, "/delivery_details", arguments: invoiceDetailsObj!.invoiceNumber.toString());
-      },  btnColor: kPrimaryColor, textColor: Colors.white );
+    return RoundedButton(btnText: "View Delivery Note", press: () { displayDeliveryNoteBotomSheet();},  btnColor: kPrimaryColor, textColor: Colors.white );
+  }
+
+  Future<void> fetchInvoiceDeliveryNumbers() async{
+    setState(() { isLoading = true; });
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        setState(() { isLoading = false; });
+        return;
+      }
+
+      var response = await  apiService.fetchInvoiceDeliveryNumbers(widget.invoiceNumber, token);
+
+      if (response["status"] == "success" && response["data"] != null) {
+        for (var data in response["data"]) {
+          InvoiceDeliveryNotesModal deliveryNote = invoiceDeliveryNotesModalFromJson(jsonEncode(data));
+          invoiceDeliveryNumbersList.add(deliveryNote);
+        }
+        setState(() {
+          invoiceDeliveryNumbersList = invoiceDeliveryNumbersList;
+        });
+      } else {
+        // dynamicMaster.displayError(context, "Error", response["message"]);
+      }
+      
+    } catch (e) {
+      print(e);
     }
-    return const SizedBox();
+    setState(() { isLoading = false; });
+
   }
 
   Future<void> fetchInvoiceDetails() async {
@@ -107,7 +140,13 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
         return;
       }
 
-      var response = await  apiService.getPrinterLayouts(token);
+      
+      Map<String, dynamic> filters = {
+        "document_name": "invoice", // Assuming 3 is the printer type ID for sales quotations
+      };
+
+
+      var response = await  apiService.getPrinterLayouts(filters, token);
 
       if (response["status"] == "success" && response["data"].length > 0) {
         for (var data in response["data"]) {
@@ -156,10 +195,10 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
         }
 
       } else {
-        dynamicMaster.displayError(context, "Error", response["message"]);
+        // dynamicMaster.displayError(context, "Error", response["message"]);
       }
     } catch (e) {
-      dynamicMaster.displayError(context, "Error", "An error occurred: $e");
+      // dynamicMaster.displayError(context, "Error", "An error occurred: $e");
     }
     setState(() { isLoading = false; });
   }
@@ -236,7 +275,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                           ),
                           SizedBox(height: size.height * 0.02,),
                           RoundedButton(
-                            btnText: "Print", 
+                            btnText: "Submit", 
                             press: () { 
                               Navigator.pop(context); 
                               processPrintRequest(int.parse(inputLayoutController.text)); 
@@ -283,6 +322,8 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
 
     if (layoutId == 1) {
       try {
+        // Show loading dialog
+        dynamicMaster.displayLoadingModal(context);
 
         Map<String, dynamic> filters = {};
 
@@ -294,6 +335,21 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
         if(printerAddressResults["status"] == "success"){
           PrinterAddressModal printerAddress = printerAddressModalFromJson(jsonEncode(printerAddressResults["data"][0]));
 
+          // Test printer connection first
+          final printerService = PrinterService(printerIp: printerAddress.address);
+          
+          Navigator.pop(context); // Close loading dialog
+          
+          // Show connection test dialog
+          bool shouldProceed = await _showConnectionTestDialog(printerService);
+          
+          if (!shouldProceed) {
+            return;
+          }
+
+          // Show loading dialog again for actual printing
+          dynamicMaster.displayLoadingModal(context);
+
           var paymentDetails = await apiService.getInvoicePaymentDetails(token, invoiceDetailsObj!.invoiceNumber.toString());
 
           PaymentDetailsModal? paymentDetailsModal;
@@ -301,8 +357,6 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
           if(paymentDetails["status"] == "success" && paymentDetails["data"].length > 0){
             paymentDetailsModal = paymentDetailsModalFromJson(jsonEncode(paymentDetails["data"][0]));
           }
-
-          final printerService = PrinterService(printerIp: printerAddress.address);
 
           Map<String, String> pointsSummary = {};
 
@@ -326,12 +380,25 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
 
           await printerService.printReceipt(invoiceDetailsObj!, pointsSummary, paymentDetailsModal);
 
+          Navigator.pop(context); // Close loading dialog
           dynamicMaster.displaySuccessMessage(context, "Print successful");
         }else{
+          Navigator.pop(context); // Close loading dialog
           dynamicMaster.displayError(context, "Error", printerAddressResults["message"]);
         }
       } catch (e) {
-        dynamicMaster.displayError(context, "Error", "Failed to print: $e");
+        Navigator.pop(context); // Close loading dialog if still open
+        String errorMessage = "Failed to print: $e";
+        
+        if (e.toString().contains("connection timeout") || e.toString().contains("connection failed")) {
+          errorMessage = "Printer connection failed. Please check:\n"
+              "• Printer is powered on\n"
+              "• Network connection is stable\n"
+              "• Printer IP address is correct\n"
+              "• Printer is not busy with another job";
+        }
+        
+        dynamicMaster.displayError(context, "Print Error", errorMessage);
       }
     } else if(layoutId == 5){
       // redirect to pdf viewer
@@ -366,19 +433,191 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
     }
   }
 
+  Future<bool> _showConnectionTestDialog(PrinterService printerService) async {
+    Size size = MediaQuery.of(context).size;
+    bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              child: Container(
+                width: size.width * 0.8,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Image.asset("assets/images/azone.png", height: 50, width: 50,),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(false), 
+                          icon: const Icon(Icons.close)
+                        )
+                      ],
+                    ),
+                    SizedBox(height: size.height * 0.02),
+                    const Text(
+                      "Printer Connection Test", 
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                    ),
+                    const Divider(height: 20, thickness: 1),
+                    SizedBox(height: size.height * 0.02),
+                    FutureBuilder<bool>(
+                      future: printerService.testConnection(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Column(
+                            children: [
+                              const CircularProgressIndicator(),
+                              SizedBox(height: size.height * 0.02),
+                              const Text("Testing printer connection..."),
+                            ],
+                          );
+                        } else if (snapshot.hasError) {
+                          return Column(
+                            children: [
+                              const Icon(Icons.error, color: Colors.red, size: 50),
+                              SizedBox(height: size.height * 0.02),
+                              const Text(
+                                "Connection test failed", 
+                                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+                              ),
+                              SizedBox(height: size.height * 0.01),
+                              Text("Error: ${snapshot.error}"),
+                              SizedBox(height: size.height * 0.02),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                                    child: const Text("Cancel", style: TextStyle(color: Colors.white)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => setState(() {}), // Restart the test
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                    child: const Text("Retry", style: TextStyle(color: Colors.white)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                    child: const Text("Print Anyway", style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        } else if (snapshot.data == true) {
+                          return Column(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.green, size: 50),
+                              SizedBox(height: size.height * 0.02),
+                              const Text(
+                                "Printer connected successfully!", 
+                                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)
+                              ),
+                              SizedBox(height: size.height * 0.02),
+                              RoundedButton(
+                                btnText: "Continue Printing",
+                                press: () => Navigator.of(context).pop(true),
+                                btnColor: kPrimaryColor,
+                                textColor: Colors.white,
+                              ),
+                            ],
+                          );
+                        } else {
+                          return Column(
+                            children: [
+                              const Icon(Icons.warning, color: Colors.orange, size: 50),
+                              SizedBox(height: size.height * 0.02),
+                              const Text(
+                                "Cannot connect to printer", 
+                                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)
+                              ),
+                              SizedBox(height: size.height * 0.01),
+                              const Text(
+                                "Please check:\n• Printer is powered on\n• Network connection\n• Printer IP address",
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: size.height * 0.01),
+                              FutureBuilder<Map<String, dynamic>>(
+                                future: printerService.getConnectionInfo(),
+                                builder: (context, infoSnapshot) {
+                                  if (infoSnapshot.hasData) {
+                                    final info = infoSnapshot.data!;
+                                    return ExpansionTile(
+                                      title: const Text("Debug Info"),
+                                      children: [
+                                        Text("IP: ${info['printer_ip']}"),
+                                        Text("Port: ${info['port']}"),
+                                        Text("Connection Time: ${info['connection_time_ms'] ?? 'N/A'} ms"),
+                                        if (info['possible_issues'] != null)
+                                          ...info['possible_issues'].map<Widget>((issue) => 
+                                            Text("• $issue", style: const TextStyle(fontSize: 12))
+                                          ),
+                                      ],
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                              SizedBox(height: size.height * 0.02),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                                    child: const Text("Cancel", style: TextStyle(color: Colors.white)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => setState(() {}), // Restart the test
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                    child: const Text("Retry", style: TextStyle(color: Colors.white)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                    child: const Text("Print Anyway", style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    
+    return result ?? false;
+  }
+
   Future<void> processInvoiceFiscalization() async {
-    setState(() { isLoading = true; });
     try {
+      dynamicMaster.displayLoadingModal(context);
+
       var token = await sessionProvider.authProvider.token;
 
       // Ensure token is not null
       if (token == null) {
         dynamicMaster.displayError(context, "Error", "No valid session token.");
-        setState(() { isLoading = false; });
+        Navigator.pop(context); // Close the loading modal
         return;
       }
-
+      
       var response = await apiService.fiscalizeInvoice(token, invoiceDetailsObj!.invoiceNumber.toString());
+
+      Navigator.pop(context); // Close the loading modal
 
       if (response["status"] == "success") {
         dynamicMaster.displaySuccessMessage(context, "Invoice fiscalized successfully.");
@@ -387,9 +626,93 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
         dynamicMaster.displayError(context, "Error", response["message"]);
       }
     } catch (e) {
+      Navigator.pop(context); // Close the loading modal
       dynamicMaster.displayError(context, "Error", "An error occurred: $e");
     }
-    setState(() { isLoading = false; });
+  }
+
+  Future<void> displayDeliveryNoteBotomSheet() async {
+    Size size = MediaQuery.of(context).size;
+    Widget closeButtonWidget = IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close));
+    
+    return showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Container(
+              height: size.height * 0.6,
+              width: size.width,
+              margin: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Image.asset("assets/images/azone.png", height: 50, width: 50,),
+                      closeButtonWidget
+                    ],
+                  ),
+                  SizedBox(height: size.height * 0.02,),
+                  const Text("Invoice Delivery Notes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+                  const Divider(height: 10, thickness: 1,),
+                  SizedBox(height: size.height * 0.02,),
+                  Column(
+                    children: [
+                      const Row(
+                        children: [
+                          Text("Delivery Location:", style: TextStyle(fontWeight: FontWeight.bold),),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.01,),
+                      Text(
+                        invoiceDetailsObj?.deliveryLocation ?? "N/A",
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: size.height * 0.02,),
+                  Expanded(
+                    child: invoiceDeliveryNumbersList.isEmpty ?
+                    Center(
+                      child: Column(
+                        children: [
+                          const Text("No delivery notes found for this invoice."),
+                          SizedBox(height: size.height * 0.02,),
+                          RoundedButton(
+                            btnText: "Copy to Delivery Note", 
+                            press: () {
+                              Navigator.pushNamed(context, "/invoice_delivery", arguments: invoiceDetailsObj!);
+                            }, 
+                            btnColor: kSecondaryColor, 
+                            textColor: Colors.white
+                          ),
+                        ],
+                      ),
+                    ) :
+                    ListView.builder(
+                      itemCount: invoiceDeliveryNumbersList.length,
+                      itemBuilder: (context, index) {
+                        return Card(
+                          child: ListTile(
+                            title: Text(invoiceDeliveryNumbersList[index].deliveryNumber.toString()),
+                            subtitle: Text(DateFormat('dd-MMMM-yyyy').format(invoiceDeliveryNumbersList[index].deliveryDate)),
+                            onTap: () {
+                              Navigator.pushNamed(context, "/delivery_details", arguments: invoiceDeliveryNumbersList[index].deliveryNumber.toString());
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
   }
 
   @override
@@ -407,7 +730,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
           children: [
             // invoice header
             Container(
-              height: size.height * 0.3,
+              height: size.height * 0.34,
               width: size.width,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -437,7 +760,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                                 // SizedBox(height: size.height * 0.01,),
                                 Text(DateFormat('dd-MMMM-yyyy').format(invoiceDetailsObj!.invoiceDate), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                                 // SizedBox(height: size.height * 0.01,),
-                                Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(invoiceDetailsObj!.invoiceTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
+                                Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetailsObj!.invoiceTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                               ],
                             ),
                             SizedBox(
@@ -480,6 +803,10 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                                   width: size.width * 0.4,
                                   child: Text(invoiceDetailsObj!.customerPhoneNo.toString(), softWrap: true, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
                                 ),
+                                SizedBox(
+                                  width: size.width * 0.4,
+                                  child: Text(invoiceDetailsObj!.customerKraPin ?? "N/A", softWrap: true, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),),
+                                ),
                               ],
                             )
                             
@@ -495,7 +822,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
 
             // invoice items
             SizedBox(
-              height: size.height * 0.6,
+              height: size.height * 0.56,
               width: size.width,
               child: Column(
                 children: [
@@ -505,7 +832,7 @@ class _InvoiceDetailsBodyState extends State<InvoiceDetailsBody> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-
+                          processInvoiceFiscalization();
                         }, 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,

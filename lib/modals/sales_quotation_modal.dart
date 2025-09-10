@@ -9,27 +9,27 @@ SalesQuotationModal salesQuotationModalFromJson(String str) => SalesQuotationMod
 String salesQuotationModalToJson(SalesQuotationModal data) => json.encode(data.toJson());
 
 class SalesQuotationModal {
-    int salesOrderId;
-    int salesOrderRef;
+    dynamic salesOrderId;
+    dynamic salesOrderRef;
     DateTime salesOrderDate;
-    String cardCode;
-    String cardName;
-    String warehouseName;
+    dynamic cardCode;
+    dynamic cardName;
+    dynamic warehouseName;
     dynamic driverName;
     dynamic driverContact;
-    String warehouseCode;
+    dynamic warehouseCode;
     dynamic uTruckNo;
     dynamic transapoterName;
-    String customerName;
-    String customerPhoneNo;
-    String customerEmail;
-    String customerIdNo;
+    dynamic customerName;
+    dynamic customerPhoneNo;
+    dynamic customerEmail;
+    dynamic customerIdNo;
     dynamic amountReceved;
     dynamic docTotal;
     dynamic change;
     dynamic deliveryLocation;
     dynamic customerKraPin;
-    String createdBy;
+    dynamic createdBy;
 
     SalesQuotationModal({
         required this.salesOrderId,

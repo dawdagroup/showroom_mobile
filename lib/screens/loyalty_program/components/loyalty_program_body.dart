@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../components/tier_card_widget.dart';
+import '../../../config/config.dart';
 import '../../../services/api_service.dart';
 import '../../../components/dynamic_widgets.dart';
 import '../../../providers/session_provider.dart';
@@ -44,7 +44,6 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
     Widget closeButtonWidget = IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close));
 
     TextEditingController customerFirstNameInputController = TextEditingController();
-    TextEditingController customerMiddleNameInputController = TextEditingController();
     TextEditingController customerLastNameInputController = TextEditingController();
     TextEditingController phoneNumberInputController = TextEditingController();
     TextEditingController customerEmailInputController = TextEditingController();
@@ -85,15 +84,6 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
                           return null;
                         },
                       ),
-                      SizedBox(height: size.height * 0.02,),
-                      LabeledTextField(
-                        label: "Customer Middle Name:",
-                        hint: "Enter Customer Middle Name",
-                        controller: customerMiddleNameInputController,
-                        validator: (value) {
-                          return null;
-                        },
-                      ),
                       SizedBox(height: size.height * 0.02,),  
                       LabeledTextField(
                         label: "Customer Last Name:",
@@ -118,11 +108,18 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
                           labelText: 'Customer Phone Number',
                           border: OutlineInputBorder(),
                         ),
-                        initialCountryCode: 'KE',
+                        initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                         controller: phoneNumberInputController,
                         onChanged: (phone) {},
                         disableLengthCheck: true,
                         validator: (PhoneNumber? value) {
+                          
+                          if(Config.releaseRegion == "UGANDA"){
+                            if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                              return 'Please enter a valid Ugandan phone number';
+                            }
+                            return null;
+                          }
 
                           if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
                             return 'Please enter a valid Kenyan phone number';
@@ -160,11 +157,11 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
                 btnText: "Add Customer",
                 press: () {
                   // Add customer logic here
-                  if (customerFirstNameInputController.text.isEmpty || customerMiddleNameInputController.text.isEmpty || customerLastNameInputController.text.isEmpty || phoneNumberInputController.text.isEmpty || customerEmailInputController.text.isEmpty || customerAddressInputController.text.isEmpty) {
+                  if (customerFirstNameInputController.text.isEmpty || customerLastNameInputController.text.isEmpty || phoneNumberInputController.text.isEmpty || customerEmailInputController.text.isEmpty || customerAddressInputController.text.isEmpty) {
                     dynamicMaster.displayError(context, "Error", "Please fill in all fields");
                   } else {
                     Navigator.of(context).pop();
-                    submitCustomer(customerFirstNameInputController.text, customerMiddleNameInputController.text, customerLastNameInputController.text, phoneNumberInputController.text, customerEmailInputController.text, customerAddressInputController.text);
+                    submitCustomer(customerFirstNameInputController.text, customerLastNameInputController.text, phoneNumberInputController.text, customerEmailInputController.text, customerAddressInputController.text);
                     
                   }
                 },
@@ -178,7 +175,7 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
     );
   }
 
-  Future<void> submitCustomer(String firstName, String middleName, String lastName, String phoneNumber, String email, String address) async {
+  Future<void> submitCustomer(String firstName, String lastName, String phoneNumber, String email, String address) async {
 
     if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
       dynamicMaster.displayError(context, "Error", "Please enter a valid email address");
@@ -196,7 +193,7 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
 
       Map<String, dynamic> data = {
         "first_name": firstName,
-        "middle_name": middleName,
+        "middle_name": null,
         "last_name": lastName,
         "phone_number": phoneNumber,
         "email": email,
@@ -369,11 +366,18 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
                           labelText: 'Customer Phone Number',
                           border: OutlineInputBorder(),
                         ),
-                        initialCountryCode: 'KE',
+                        initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                         controller: phoneNumberInputController,
                         onChanged: (phone) {},
                         disableLengthCheck: true,
                         validator: (PhoneNumber? value) {
+                          if(Config.releaseRegion == "UGANDA"){
+                            if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                              return 'Please enter a valid Ugandan phone number';
+                            }
+                            return null;
+                          }
+                          
                           if (value != null && value.completeNumber.isNotEmpty && !RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
                             return 'Please enter a valid Kenyan phone number';
                           }
@@ -544,40 +548,64 @@ class _LoyaltyProgramBodyState extends State<LoyaltyProgramBody> {
               children: [
                 SizedBox(height: size.height * 0.02),
                 // Bronze Tier
-                const TierCard(
-                  title: 'Bronze Tier',
-                  maxPoints: '1000',
-                  discount: '1%',
-                  minPoints: '0',
-                  bgColor: kBronzeColor,
+                Image.asset(
+                  "assets/images/bronze.png",
+                  height: 150,
+                  fit: BoxFit.contain,
                 ),
+                // const TierCard(
+                //   title: 'Bronze Tier',
+                //   maxPoints: '1000',
+                //   discount: '1%',
+                //   minPoints: '0',
+                //   bgColor: kBronzeColor,
+                // ),
                 SizedBox(height: size.height * 0.02),
                 // Silver Tier
-                const TierCard(
-                  title: 'Silver Tier',
-                  maxPoints: '5000',
-                  discount: '1.5%',
-                  minPoints: '1000',
-                  bgColor: kSilverColor,
-                ),
+                
+                      Image.asset(
+                        "assets/images/silver.png",
+                        height: 150,
+                        fit: BoxFit.contain,
+                      ),
+                // const TierCard(
+                //   title: 'Silver Tier',
+                //   maxPoints: '5000',
+                //   discount: '1.5%',
+                //   minPoints: '1000',
+                //   bgColor: kSilverColor,
+                // ),
                 SizedBox(height: size.height * 0.02),
                 // Gold Tier
-                const TierCard(
-                  title: 'Gold Tier',
-                  maxPoints: '10000',
-                  discount: '2%',
-                  minPoints: '5000',
-                  bgColor: kGoldColor2,
-                ),
+                
+                      Image.asset(
+                        "assets/images/gold.png",
+                        height: 150,
+                        fit: BoxFit.contain,
+                      ),
+                // const TierCard(
+                //   title: 'Gold Tier',
+                //   maxPoints: '10000',
+                //   discount: '2%',
+                //   minPoints: '5000',
+                //   bgColor: kGoldColor2,
+                // ),
                 SizedBox(height: size.height * 0.02),
                 // Platinum Tier
-                const TierCard(
-                  title: 'Platinum Tier',
-                  maxPoints: 'unlimited',
-                  discount: '2.5%',
-                  minPoints: '10000',
-                  bgColor: kPlatinumColor,
+                
+                Image.asset(
+                  "assets/images/platinum.png",
+                  
+                  height: 150,
+                  fit: BoxFit.contain,
                 ),
+                // const TierCard(
+                //   title: 'Platinum Tier',
+                //   maxPoints: 'unlimited',
+                //   discount: '2.5%',
+                //   minPoints: '10000',
+                //   bgColor: kPlatinumColor,
+                // ),
                 SizedBox(height: size.height * 0.02),
               ],
             ),

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../modals/goods_issue_details_modal.dart';
 import '../modals/invoice_details_modal.dart';
+import '../modals/product_modal.dart';
 import '../modals/product_serial_number_modal.dart';
 import '../modals/purchase_order_details_modal.dart';
 import '../modals/sales_order_details_modal.dart';
+import '../modals/sales_quotation_details_modal.dart';
 import '../modals/stock_transfer_details_modal.dart';
 import '../screens/goods_issue/components/goods_issue_create_product_screen.dart';
 import '../screens/goods_issue/components/goods_issue_create_screen.dart';
@@ -17,6 +19,8 @@ import '../screens/password_reset/components/password_update_screen.dart';
 import '../screens/password_reset/password_reset_screen.dart';
 import '../screens/pdf_view/pdf_view_screen.dart';
 import '../screens/physical_stock_count/physical_stock_count_screen.dart';
+import '../screens/physical_stock_count_details/components/physical_stock_take_product_screen.dart';
+import '../screens/physical_stock_count_details/physical_stock_count_details_screen.dart';
 import '../screens/product_details/product_details_screen.dart';
 import '../screens/purchase_receipt/components/goods_issue_product_screen.dart';
 import '../screens/purchase_receipt/components/purchase_order_product_screen.dart';
@@ -25,13 +29,16 @@ import '../screens/purchase_receipt/components/receive_po_screen.dart';
 import '../screens/purchase_receipt/purcahse_receipt_screen.dart';
 import '../screens/sales_delivery/components/invoice_delivery_product_screen.dart';
 import '../screens/sales_delivery/components/invoice_delivery_screen.dart';
+import '../screens/sales_delivery/components/sales_delivery_create_screen.dart';
 import '../screens/sales_delivery/components/sales_order_delivery_product_screen.dart';
 import '../screens/sales_delivery/components/sales_order_delivery_screen.dart';
 import '../screens/sales_delivery/sales_delivery_screen.dart';
+import '../screens/sales_delivery_details/sales_delivery_details_screen.dart';
 import '../screens/sales_order_details/sales_order_details_screen.dart';
 import '../screens/sales_quotation/components/checkout_screen.dart';
 import '../screens/sales_quotation/components/sales_quotation_form.dart';
 import '../screens/sales_quotation/sales_quotation_screen.dart';
+import '../screens/sales_quotation_details/components/convert_to_invoice_checkout_screen.dart';
 import '../screens/sales_quotation_details/sales_quotation_details_screen.dart';
 import '../screens/complaints/complaint_screen.dart';
 import '../screens/complaints/components/complaint_registration_screen.dart';
@@ -111,19 +118,29 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => InvoiceDeliveryScreen(invoiceDetailsObj: args as InvoiceDetailsModal,));
       case '/invoice_delivery_product_screen':
         final args = settings.arguments as Map<String, dynamic>;
-        return MaterialPageRoute(builder: (_) => InvoiceDeliveryProductScreen(invoiceItem: args['invoiceItem'] as InvoiceItem, serialNumberList: args['serialNumberList'] as List<ProductSerialNumberModal>,));
+        return MaterialPageRoute(builder: (_) => InvoiceDeliveryProductScreen(
+          invoiceItem: args['invoiceItem'] as InvoiceItem, 
+          serialNumberList: args['serialNumberList'] as List<ProductSerialNumberModal>,
+          invoiceNumber: args['invoiceNumber'] as String,
+        ));
       case '/receive_po':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => ReceivePoScreen(purchaseOrderDetailsObj: args as PurchaseOrderDetailsModal,));
       case '/purchase_order_product_screen':
-        final args = settings.arguments;
-        return MaterialPageRoute(builder: (_) => PurchaseOrderProductScreen(purchaseOrderLineItem: args as PurchaseOrderLineItem));
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(builder: (_) => PurchaseOrderProductScreen(
+          purchaseOrderLineItem: args['purchaseOrderLineItem'] as PurchaseOrderLineItem,
+          purchaseOrderNumber: args['purchaseOrderNumber'] as String,
+        ));
       case '/receive_goods_issue':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => ReceiveGoodsIssueScreen(goodsIssueDetailsObj: args as GoodsIssueDetailsModal,));
       case '/goods_issue_product_screen':
-        final args = settings.arguments;
-        return MaterialPageRoute(builder: (_) => GoodsIssueProductScreen(goodsIssueDetailsLineItem: args as GoodsIssueDetailsLineItem));
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(builder: (_) => GoodsIssueProductScreen(
+          goodsIssueDetailsLineItem: args['goodsIssueDetailsLineItem'] as GoodsIssueDetailsLineItem,
+          goodsIssueNumber: args['goodsIssueNumber'] as String,
+        ));
       case '/create_goods_issue':
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => GoodsIssueCreateScreen(transferNumber: args as String));
@@ -132,7 +149,11 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => SalesOrderDeliveryScreen(salesOrderDetailsObj: args as SalesOrderDetailsModal,));
       case '/sales_order_delivery_product_screen':
         final args = settings.arguments as Map<String, dynamic>;
-        return MaterialPageRoute(builder: (_) => SalesOrderDeliveryProductScreen(salesOrderDetailsLineItem: args['salesOrderDetailsLineItem'] as SalesOrderDetailsLineItem, serialNumberList: args['serialNumberList'] as List<ProductSerialNumberModal>,));
+        return MaterialPageRoute(builder: (_) => SalesOrderDeliveryProductScreen(
+          salesOrderDetailsLineItem: args['salesOrderDetailsLineItem'] as SalesOrderDetailsLineItem, 
+          serialNumberList: args['serialNumberList'] as List<ProductSerialNumberModal>,
+          salesOrderNumber: args['salesOrderNumber'] as String,
+        ));
       case '/stock_transfer':
         return MaterialPageRoute(builder: (_) => const StockTransferScreen());
       case '/pdf_view':
@@ -144,10 +165,27 @@ class RouteGenerator {
         final args = settings.arguments;
         return MaterialPageRoute(builder: (_) => StcokTransferDetailsScreen(strockTransferNumber: args as String,));
       case '/goods_issue_create_product':
-        final args = settings.arguments;
-        return MaterialPageRoute(builder: (_) => GoodsIssueCreateProductScreen(product: args as StockTransferProduct,));
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(builder: (_) => GoodsIssueCreateProductScreen(
+          product: args['product'] as StockTransferProduct,
+          transferNumber: args['transferNumber'] as String,
+        ));
       case '/physical_stock_count':
         return MaterialPageRoute(builder: (_) => const PhysicalStockCountScreen());
+      case '/physical_stock_count_details':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => PhysicalStockCountDetailsScreen(physicalStockCountId: args as String,));
+      case '/physical_stock_take_product_screen':
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(builder: (_) => PhysicalStockTakeProductScreen(product: args['product'] as ProductModal, physicalStockCountId: args['physicalStockCountId'] as String));
+      case '/delivery_details':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => SalesDeliveryDetailsScreen(deliveryNumber: args as String,));
+      case '/convert_to_invoice_checkout':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (_) => ConvertToInvoiceCheckoutScreen(salesQuotationDetailsObj: args as SalesQuotationDetailsModal,));
+      case '/sales_delivery_create':
+        return MaterialPageRoute(builder: (_) => const SalesDeliveryCreateScreen());
       default:
         return _errorRoute();
     }

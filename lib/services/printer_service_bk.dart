@@ -2,6 +2,7 @@ import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:intl/intl.dart';
 
+import '../config/config.dart';
 import '../modals/invoice_details_modal.dart';
 
 class PrinterService {
@@ -58,24 +59,24 @@ class PrinterService {
 
     for (var item in invoiceDetails.invoiceItems) {
       double itemTotal = item.itemPriceAfVat * item.quantity;
-      printer.text('${item.itemGroup + '-' + item.itemModelNo}        ${item.quantity}       ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(item.itemPriceAfVat)}      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(itemTotal)}');
+      printer.text('${item.itemGroup + '-' + item.itemModelNo}        ${item.quantity}       ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(item.itemPriceAfVat)}      ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(itemTotal)}');
     }
 
     printer.text('------------------------------------------');
     printer.text('TOTAL ITEMS:                             ${invoiceDetails.invoiceItems.length}');
     printer.text('------------------------------------------');
     double subTotal = invoiceDetails.invoiceTotal - invoiceDetails.invoiceVatTotal;
-    printer.text('SUB-TOTAL:                  ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(subTotal)}');
-    printer.text('VAT:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
-    printer.text('TOTAL:                      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
+    printer.text('SUB-TOTAL:                  ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(subTotal)}');
+    printer.text('VAT:                        ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
+    printer.text('TOTAL:                      ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
     printer.text('------------------------------------------');
     printer.text('CODE    RATE     VATABLE AMT       VAT AMT');
-    printer.text('A        16%      ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(subTotal)}        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
+    printer.text('A        16%      ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(subTotal)}        ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetails.invoiceVatTotal)}');
     printer.text('------------------------------------------');
-    printer.text('TOTAL:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
-    printer.text('CASH:                         ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(invoiceDetails.invoiceAmtRecd)}');
+    printer.text('TOTAL:                        ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetails.invoiceTotal)}');
+    printer.text('CASH:                         ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(invoiceDetails.invoiceAmtRecd)}');
     double change = invoiceDetails.invoiceAmtRecd - invoiceDetails.invoiceTotal;
-    printer.text('CHANGE:                        ${NumberFormat.simpleCurrency(name: "KES ", decimalDigits: 2).format(change)}');
+    printer.text('CHANGE:                        ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(change)}');
 
     printer.emptyLines(1);
     printer.text('------------------------------------------');

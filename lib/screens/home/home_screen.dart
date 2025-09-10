@@ -11,13 +11,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
 
   @override
   Widget build(BuildContext context) {
     ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      drawer: dynamicMaster.buildSideBar(context),
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: const HomeBodyScreen(),
     );
   }

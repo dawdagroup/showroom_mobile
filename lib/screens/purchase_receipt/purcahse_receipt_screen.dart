@@ -11,12 +11,14 @@ class PurcahseReceiptScreen extends StatefulWidget {
 }
 
 class _PurcahseReceiptScreenState extends State<PurcahseReceiptScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(Theme.of(context), context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(Theme.of(context), context, _scaffoldKey),
       body: const PurchaseScreenBody(),
     );
   }

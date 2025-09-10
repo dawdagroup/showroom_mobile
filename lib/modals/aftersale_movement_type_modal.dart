@@ -30,4 +30,10 @@ class AftersalesMovementTypeModal {
         "id": id,
         "created_at": createdAt.toIso8601String(),
     };
+
+    
+  @override
+  String toString() {
+    return name;
+  }
 }

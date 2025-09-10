@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'components/navigation_observer.dart';
 import 'config/config.dart';
 import 'db/database_helper.dart';
 import 'providers/auth_provider.dart';
@@ -14,26 +15,24 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DatabaseHelper().initializeDB();
 
+  // initialize sentry only in production
+  if (Config.environment == 'production') {
+    await _initializeSentry();
+  }
+  runApp(const MyApp());
+}
+
+Future<void> _initializeSentry() async {
   await SentryFlutter.init(
     (options) {
       options.dsn = Config.sentryDsn;
-      // Optionally set additional options:
       options.environment = Config.environment;
-      // options.release = 'my-project-name@1.0.0+1';
       options.tracesSampleRate = 1.0; // Adjust the sample rate as needed
       options.experimental.replay.sessionSampleRate = 1.0;
       options.experimental.replay.onErrorSampleRate = 1.0;
     },
-    appRunner: () => runApp(const MyApp()),
   );
 }
-
-// void main() async {
-//   // tz.initializeTimeZones();
-//   WidgetsFlutterBinding.ensureInitialized();
-//   await DatabaseHelper().initializeDB();
-//   runApp(const MyApp());
-// }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -63,10 +62,9 @@ class MyApp extends StatelessWidget {
               } else {
                 return MaterialApp(
                   title: 'Azone Showroom App',
-                  theme: ThemeData(
-                    primarySwatch: Colors.blue,
-                  ),
+                  theme: ThemeData(primarySwatch: Colors.blue,),
                   initialRoute: snapshot.data == true ? '/home' : '/login',
+                  navigatorObservers: [ routeObserver, stockCountDetailsObserver ],    // ← register it here
                   onGenerateRoute: RouteGenerator.generateRoute,
                 );
               }

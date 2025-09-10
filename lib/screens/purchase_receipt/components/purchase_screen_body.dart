@@ -100,6 +100,7 @@ class _PurchaseScreenBodyState extends State<PurchaseScreenBody> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;

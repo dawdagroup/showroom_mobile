@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../components/dynamic_widgets.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
@@ -30,6 +31,9 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
   ProductModal? productDetails;
   List<WarehouseStockModal> warehouseStockList = [];
   List<WarehouseStockModal> supplierStockList = [];
+
+  final ScrollController _stocksScrollController = ScrollController();
+  
 
   @override
   void initState() {
@@ -196,7 +200,10 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
       final store = stockList
           .where((item) => item.warehouseType == "STORE")
           .fold(0.0, (sum, item) => sum + (item.stockOnHand is num ? item.stockOnHand.toDouble() : 0));
-      final totalSellable = sellableDisplay + store;
+      final centralWarehouse = stockList
+          .where((item) => item.warehouseType == "WAREHOUSE")
+          .fold(0.0, (sum, item) => sum + (item.stockOnHand is num ? item.stockOnHand.toDouble() : 0));
+      final totalSellable = sellableDisplay + store + centralWarehouse;
 
       rows.add(
         DataRow(cells: [
@@ -210,7 +217,6 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
     });
     return rows;
   }
-
 
   // Bottom Sheet Content Builder
   Widget buildBottomSheetContent(Size size) {
@@ -245,12 +251,12 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryLightColor),
                 ),
                 // add price here
-                Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(double.parse(productDetails!.price.toString())), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kSecondaryColor),),
+                Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(double.parse(productDetails!.price.toString())), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kSecondaryColor),),
               ],
             ),
             SizedBox(height: size.height * 0.02,),
             // add description here
-            Text(productDetails!.modelNo, style: const TextStyle(fontSize: 16, color: kPrimaryLightColor),),
+            Text(productDetails!.modelNo ?? "Unknown Model", style: const TextStyle(fontSize: 16, color: kPrimaryLightColor),),
             SizedBox(height: size.height * 0.02,),
             // add tabs here
             SizedBox(
@@ -297,54 +303,7 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
                               );
                             },
                           ),
-
-                          // Azone Stocks Tab
-                          // SingleChildScrollView(
-                          //   child: DataTable(
-                          //     border: const TableBorder(
-                          //       top: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       bottom: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       left: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       right: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       horizontalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
-                          //       verticalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
-                          //     ),
-                          //     columns: const [
-                          //       DataColumn(label: Text("Warehouse Name", style: TextStyle(color: kSecondaryColor))),
-                          //       DataColumn(label: Text("Quantity", style: TextStyle(color: kSecondaryColor))),
-                          //     ],
-                          //     rows: warehouseStockList.map((data) {
-                          //       return DataRow(
-                          //         cells: [
-                          //           DataCell(Text(data.warehouseName.toString(), style: const TextStyle(color: kPrimaryLightColor))),
-                          //           DataCell(Text(data.stockOnHand.toString(), style: const TextStyle(color: kPrimaryLightColor))),
-                          //         ],
-                          //       );
-                          //     }).toList(),
-                          //   ),
-                          // ),
-                          // Assuming warehouseStockList is your List<WarehouseStockModal>
-                          // SingleChildScrollView(
-                          //   // scrollDirection: Axis.horizontal, // To allow horizontal scrolling if needed
-                          //   child: DataTable(
-                          //     border: const TableBorder(
-                          //       top: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       bottom: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       left: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       right: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                          //       horizontalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
-                          //       verticalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
-                          //     ),
-                          //     columns: const [
-                          //       DataColumn(label: Text("Shop", style: TextStyle(color: kSecondaryColor))),
-                          //       DataColumn(label: Text("NSD", style: TextStyle(color: kSecondaryColor))),
-                          //       DataColumn(label: Text("SD", style: TextStyle(color: kSecondaryColor))),
-                          //       DataColumn(label: Text("BS", style: TextStyle(color: kSecondaryColor))),
-                          //       DataColumn(label: Text("TS", style: TextStyle(color: kSecondaryColor))),
-                          //     ],
-                          //     rows: _buildGroupedRows(warehouseStockList),
-                          //   ),
-                          // ),
+                          // _buildAzoneStocksTab(),
                           SingleChildScrollView(
                             scrollDirection: Axis.vertical,
                             child: SingleChildScrollView(
@@ -359,41 +318,49 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
                                   verticalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
                                 ),
                                 columns: const [
-                                DataColumn(label: Text("Shop", style: TextStyle(color: kSecondaryColor))),
-                                DataColumn(label: Text("NSD", style: TextStyle(color: kSecondaryColor))),
-                                DataColumn(label: Text("SD", style: TextStyle(color: kSecondaryColor))),
-                                DataColumn(label: Text("BS", style: TextStyle(color: kSecondaryColor))),
-                                DataColumn(label: Text("TS", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("Shop", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("NSD", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("SD", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("BS", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("TS", style: TextStyle(color: kSecondaryColor))),
                                 ],
                                 rows: _buildGroupedRows(warehouseStockList),
                               ),
                             ),
                           ),
 
-              
                           // Supplier Stocks Tab
                           SingleChildScrollView(
-                            child: DataTable(
-                              border: const TableBorder(
-                                top: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                                bottom: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                                left: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                                right: BorderSide(color: kPrimaryLightColor, width: 2.0),
-                                horizontalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
-                                verticalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
+                            scrollDirection: Axis.vertical,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DataTable(
+                                border: const TableBorder(
+                                  top: BorderSide(color: kPrimaryLightColor, width: 2.0),
+                                  bottom: BorderSide(color: kPrimaryLightColor, width: 2.0),
+                                  left: BorderSide(color: kPrimaryLightColor, width: 2.0),
+                                  right: BorderSide(color: kPrimaryLightColor, width: 2.0),
+                                  horizontalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
+                                  verticalInside: BorderSide(color: kPrimaryLightColor, width: 1.0),
+                                ),
+                                columns: const [
+                                  DataColumn(label: Text("Warehouse Name", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("Status", style: TextStyle(color: kSecondaryColor))),
+                                  DataColumn(label: Text("Stock Date", style: TextStyle(color: kSecondaryColor))),
+                                ],
+                                rows: supplierStockList.map((data) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text(data.warehouseName.toString(), style: const TextStyle(color: kPrimaryLightColor))),
+                                      DataCell(Text(data.stockOnHand.toString(), style: const TextStyle(color: kPrimaryLightColor))),
+                                      DataCell(Text(
+                                        data.stockDate != null ? DateFormat('dd-MMM-yyyy').format(DateTime.parse(data.stockDate.toString())) : "N/A",
+                                        style: const TextStyle(color: kPrimaryLightColor),
+                                      )),
+                                    ],
+                                  );
+                                }).toList(),
                               ),
-                              columns: const [
-                                DataColumn(label: Text("Warehouse Name", style: TextStyle(color: kSecondaryColor))),
-                                DataColumn(label: Text("Quantity", style: TextStyle(color: kSecondaryColor))),
-                              ],
-                              rows: supplierStockList.map((data) {
-                                return DataRow(
-                                  cells: [
-                                    DataCell(Text(data.warehouseName.toString(), style: const TextStyle(color: kPrimaryLightColor))),
-                                    DataCell(Text(data.stockOnHand.toString(), style: const TextStyle(color: kPrimaryLightColor))),
-                                  ],
-                                );
-                              }).toList(),
                             ),
                           ),
                         ],
@@ -409,14 +376,83 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
     }
   }
 
+  Widget _buildAzoneStocksTab() {
+    // — aggregate your data exactly like you did for DataRow
+    final map = <String, _StockRow>{};
+    for (var stock in warehouseStockList) {
+      final key = stock.warehouseShortName ?? '';
+      final row = map.putIfAbsent(key, () => _StockRow(key));
+      final qty = (stock.stockOnHand is num) ? (stock.stockOnHand as num).toInt() : 0;
+      switch (stock.warehouseType) {
+        case 'NON-SELLABLE DISPLAY':
+          row.nsd += qty;
+          break;
+        case 'SELLABLE DISPLAY':
+          row.sd += qty;
+          break;
+        case 'STORE':
+          row.store += qty;
+          break;
+        case 'WAREHOUSE':
+          row.bs += qty;
+          break;
+      }
+    }
+    // compute total sellable
+    final rows = map.values.toList()
+      ..forEach((r) => r.ts = r.sd + r.store + r.bs);
+
+    return Column(
+      children: [
+        // — Header stays put
+        SingleChildScrollView(
+          controller: _stocksScrollController,
+          scrollDirection: Axis.horizontal,
+          child: const Row(
+            children: [
+              _HeaderCell('Shop'),
+              _HeaderCell('NSD'),
+              _HeaderCell('SD'),
+              _HeaderCell('BS'),
+              _HeaderCell('TS'),
+            ]
+          ),
+        ),
+
+        const Divider(color: kPrimaryLightColor),
+        // — Body scrolls under it
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _stocksScrollController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 5 * 100.0, // 5 columns × 100px each
+              child: ListView.builder(
+                itemCount: rows.length,
+                itemBuilder: (ctx, i) {
+                  final r = rows[i];
+                  return Row(children: [
+                    _BodyCell(r.shop),
+                    _BodyCell(r.nsd.toString()),
+                    _BodyCell(r.sd.toString()),
+                    _BodyCell(r.bs.toString()),
+                    _BodyCell(r.ts.toString()),
+                  ]);
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
 
     return SlidingUpPanel(
-      controller: PanelController(
-
-      ),
+      controller: PanelController(),
       minHeight: size.height * 0.2,
       maxHeight: size.height * 0.85,
       body: buildMainContent(size),
@@ -429,3 +465,42 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
     );
   }
 }
+
+class _StockRow {
+  final String shop;
+  int nsd = 0, sd = 0, store = 0, bs = 0, ts = 0;
+  _StockRow(this.shop);
+}
+
+class _HeaderCell extends StatelessWidget {
+  final String label;
+  const _HeaderCell(this.label, {Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(8),
+      color: kSecondaryColor,
+      child: Text(label,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+class _BodyCell extends StatelessWidget {
+  final String text;
+  const _BodyCell(this.text, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: kPrimaryLightColor)),
+      ),
+      child: Text(text, style: const TextStyle(color: kPrimaryLightColor)),
+    );
+  }
+}
+

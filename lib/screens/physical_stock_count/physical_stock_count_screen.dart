@@ -11,13 +11,15 @@ class PhysicalStockCountScreen extends StatefulWidget {
 }
 
 class _PhysicalStockCountScreenState extends State<PhysicalStockCountScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
   
   @override
   Widget build(BuildContext context) {
     ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: const PhysicalStockCountBody(),
     );
   }

@@ -23,7 +23,7 @@ class SalesOrderDeliveryBody extends StatefulWidget {
 }
 
 class _SalesOrderDeliveryBodyState extends State<SalesOrderDeliveryBody> {
-  final SalesOrderController salesOrderController = Get.put(SalesOrderController());
+  late final SalesOrderController salesOrderController;
 
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
@@ -34,6 +34,14 @@ class _SalesOrderDeliveryBodyState extends State<SalesOrderDeliveryBody> {
   void initState() {
     // TODO: implement initState
     super.initState();
+
+    // Initialize controller with sales order number as tag
+    String salesOrderTag = widget.salesOrderDetailsObj.saleOrderNumber.toString();
+    if (Get.isRegistered<SalesOrderController>(tag: salesOrderTag)) {
+      salesOrderController = Get.find<SalesOrderController>(tag: salesOrderTag);
+    } else {
+      salesOrderController = Get.put(SalesOrderController(), tag: salesOrderTag);
+    }
 
     // Set the sales order number in the controller.
     salesOrderController.salesOrderNumber.value = widget.salesOrderDetailsObj.saleOrderNumber.toString();
@@ -48,8 +56,6 @@ class _SalesOrderDeliveryBodyState extends State<SalesOrderDeliveryBody> {
 
     salesOrderController.loadScans();
   }
-
-  
 
   Future<void> processSalesOrderDevlivery() async{
     try{
@@ -189,7 +195,16 @@ class _SalesOrderDeliveryBodyState extends State<SalesOrderDeliveryBody> {
                     child: ListView.builder(
                       itemCount: widget.salesOrderDetailsObj.lineItems.length,
                       itemBuilder: (context, index) {
-                        return SalesOrderDeliveryCard(salesOrderDetailsLineItem: widget.salesOrderDetailsObj.lineItems[index],);
+                        // itemInventoryStatus
+                        var itemInventoryStatus = widget.salesOrderDetailsObj.lineItems[index].itemLineStatus;
+
+                        if (itemInventoryStatus == "C"){
+                          return SizedBox(); // Skip items with inventory status "C"
+                        }
+                        return SalesOrderDeliveryCard(
+                          salesOrderDetailsLineItem: widget.salesOrderDetailsObj.lineItems[index],  
+                          salesOrderNumber: widget.salesOrderDetailsObj.saleOrderNumber.toString(),
+                        );
                       },
                     ),
                   ),

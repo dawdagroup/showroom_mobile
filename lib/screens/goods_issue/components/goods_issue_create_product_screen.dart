@@ -4,7 +4,8 @@ import 'goods_issue_create_product_body.dart';
 
 class GoodsIssueCreateProductScreen extends StatefulWidget {
   final StockTransferProduct product;
-  const GoodsIssueCreateProductScreen({super.key, required this.product});
+  final String transferNumber;
+  const GoodsIssueCreateProductScreen({super.key, required this.product, required this.transferNumber});
 
   @override
   State<GoodsIssueCreateProductScreen> createState() => _GoodsIssueCreateProductScreenState();
@@ -14,7 +15,10 @@ class _GoodsIssueCreateProductScreenState extends State<GoodsIssueCreateProductS
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GoodsIssueCreateProductBody(product: widget.product),
+      body: GoodsIssueCreateProductBody(
+        product: widget.product,
+        transferNumber: widget.transferNumber,
+      ),
     );
   }
 }

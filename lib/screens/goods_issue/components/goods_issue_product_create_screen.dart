@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -11,17 +10,19 @@ import '../../../controllers/stock_transfer_controller.dart';
 import '../../../modals/stock_transfer_details_modal.dart';
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../services/image_service.dart';
 
 class GoodsIssueProductCreateScreen extends StatefulWidget {
   final StockTransferProduct product;
-  const GoodsIssueProductCreateScreen({super.key, required this.product});
+  final String transferNumber;
+  const GoodsIssueProductCreateScreen({super.key, required this.product, required this.transferNumber});
 
   @override
   State<GoodsIssueProductCreateScreen> createState() => _GoodsIssueProductCreateScreenState();
 }
 
 class _GoodsIssueProductCreateScreenState extends State<GoodsIssueProductCreateScreen>  with WidgetsBindingObserver {
-  final StockTransferController stockTransferController = Get.find<StockTransferController>();
+  late final StockTransferController stockTransferController;
   ApiService apiService = ApiService();
   DynamicMaster dynamicMaster = DynamicMaster();
   late SessionProvider sessionProvider;
@@ -40,6 +41,7 @@ class _GoodsIssueProductCreateScreenState extends State<GoodsIssueProductCreateS
   void initState() {
     // TODO: implement initState
     super.initState();
+    stockTransferController = Get.find<StockTransferController>(tag: widget.transferNumber);
     init();
   }
   
@@ -47,7 +49,6 @@ class _GoodsIssueProductCreateScreenState extends State<GoodsIssueProductCreateS
   void didChangeDependencies() {
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
-    getProductImage();
   }
   
   @override
@@ -108,35 +109,6 @@ class _GoodsIssueProductCreateScreenState extends State<GoodsIssueProductCreateS
     honeywellScanner.setProperties(properties);
   }
   
-  // get the product image
-  Future<void> getProductImage() async {
-    setState(() { isLoading = true; });
-    try {
-      if(widget.product.itemPictureName == null || widget.product.itemPictureName == "") {
-        setState(() { isLoading = false; productImagePath = "assets/images/blank_image.png"; });
-        return;
-      }
-
-      var token = await sessionProvider.authProvider.token;
-
-      if(token == null){
-        setState(() { isLoading = false; });
-        dynamicMaster.displayError(context, "Error", "Session expired. Kindly login again.");
-        return;
-      }
-
-      var response = await apiService.getProductImage(token, widget.product.itemPictureName);
-
-      if(response["status"] == "success"){
-        setState(() { productImagePath = response["file_path"]; });
-      }else{
-        dynamicMaster.displayError(context, "Error", response["message"]);
-      }
-    } catch (e) {
-      dynamicMaster.displayError(context, "Error", e.toString());
-    }
-    setState(() { isLoading = false; });
-  }
 
 
   @override
@@ -161,11 +133,27 @@ class _GoodsIssueProductCreateScreenState extends State<GoodsIssueProductCreateS
                     children: [
                       SizedBox(
                         width: size.width * 0.3,
-                        child: isLoading ? 
-                          const Center(child: CircularProgressIndicator()) : 
-                          productImagePath == null ? 
-                          Image.asset("assets/images/blank_image.png", width: size.width * 0.3) : 
-                          Image.file(File(productImagePath!), fit: BoxFit.cover,)
+                        child: ImageService.isValidItemCode(widget.product.itemCode.toString()) ? 
+                          Image.network(
+                            ImageService.getProductImageUrl(widget.product.itemCode.toString()),
+                            height: size.height * 0.3, 
+                            width: size.width * 0.3,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(color: kPrimaryLightColor)
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                "assets/images/blank_image.png", 
+                                width: size.width * 0.3, 
+                                fit: BoxFit.cover
+                              );
+                            },
+                          ) :
+                          Image.asset("assets/images/blank_image.png", width: size.width * 0.3, fit: BoxFit.cover),
                       ),
                       SizedBox(
                         width: size.width * 0.6,

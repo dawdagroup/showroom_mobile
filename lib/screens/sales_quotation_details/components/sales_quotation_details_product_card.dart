@@ -1,14 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../components/dynamic_widgets.dart';
+import '../../../config/config.dart';
 import '../../../constant/constants.dart';
 import '../../../modals/sales_quotation_line_item_modal.dart';
 import 'package:intl/intl.dart';
 
 import '../../../providers/session_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../services/image_service.dart';
 
 class SalesQuotationDetailsProductCard extends StatefulWidget {
   final SalesQuotationLineItemModal salesQuotationLineItemModal;
@@ -36,42 +36,7 @@ class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetails
     super.didChangeDependencies();
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
     
-    getProductImage();
   }
-
-  
-  // get the product image
-  Future<void> getProductImage() async {
-    setState(() { isLoading = true; });
-    try {
-      var token = await sessionProvider.authProvider.token;
-
-      // Ensure token is not null
-      if (token == null) {
-        dynamicMaster.displayError(context, "Error", "No valid session token.");
-        setState(() { isLoading = false; });
-        return;
-      }
-
-
-      if(widget.salesQuotationLineItemModal.itemPictureName == null || widget.salesQuotationLineItemModal.itemPictureName == "") {
-        setState(() { isLoading = false; });
-        return;
-      }
-
-      var response = await apiService.getProductImage(token, widget.salesQuotationLineItemModal.itemPictureName);
-
-      if(response["status"] == "success"){
-        setState(() { productImagePath = response["file_path"]; });
-      }else{
-        dynamicMaster.displayError(context, "Error", response["message"]);
-      }
-    } catch (e) {
-      dynamicMaster.displayError(context, "Error", e.toString());
-    }
-    setState(() { isLoading = false; });
-  }
-
 
   Future<void> _showProductDetailsDialog(BuildContext context) async {
     Size size = MediaQuery.of(context).size;
@@ -106,7 +71,7 @@ class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetails
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text("Price: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
-                              Text(NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
+                              Text(NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),),
                             ],
                           ),
                           SizedBox(height: size.height * 0.01,),
@@ -190,11 +155,27 @@ class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetails
             children: [
               SizedBox(
                 width: size.width * 0.3,
-                child: isLoading ? 
-                  const Center(child: CircularProgressIndicator()) : 
-                  productImagePath == null ? 
-                  Image.asset("assets/images/blank_image.png", width: size.width * 0.3) : 
-                  Image.file(File(productImagePath!), fit: BoxFit.cover,)
+              child: ImageService.isValidItemCode(widget.salesQuotationLineItemModal.itemCode?.toString()) ? 
+                Image.network(
+                  ImageService.getProductImageUrl(widget.salesQuotationLineItemModal.itemCode.toString()),
+                  height: size.height * 0.3, 
+                  width: size.width * 0.3,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryLightColor)
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Image.asset(
+                      "assets/images/blank_image.png", 
+                      width: size.width * 0.3, 
+                      fit: BoxFit.cover
+                    );
+                  },
+                ) :
+                Image.asset("assets/images/blank_image.png", width: size.width * 0.3, fit: BoxFit.cover),
               ),
               SizedBox(
                 width: size.width * 0.6,
@@ -207,7 +188,7 @@ class _SalesQuotationDetailsProductCardState extends State<SalesQuotationDetails
                     SizedBox(height: size.height * 0.01,),
                     Text("Qty: ${widget.salesQuotationLineItemModal.quantity.toString()}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
-                    Text("Price: ${NumberFormat.simpleCurrency(name: "Ksh ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
+                    Text("Price: ${NumberFormat.simpleCurrency(name: "${Config.defaultCurrency} ", decimalDigits: 2).format(widget.salesQuotationLineItemModal.itemPrice)}", style: const TextStyle(fontSize: 14, color: Colors.white),),
                     SizedBox(height: size.height * 0.01,),
                   ],
                 ),

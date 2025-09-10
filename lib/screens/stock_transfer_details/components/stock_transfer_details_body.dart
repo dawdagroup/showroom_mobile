@@ -9,6 +9,7 @@ import '../../../components/dynamic_widgets.dart';
 import '../../../components/rounded_buttons.dart';
 import '../../../constant/constants.dart';
 import '../../../db/database_helper.dart';
+import '../../../modals/goods_issue_details_modal.dart';
 import '../../../modals/stock_transfer_details_modal.dart';
 import '../../../modals/warehouse_modal.dart';
 import '../../../providers/session_provider.dart';
@@ -103,31 +104,38 @@ class _StockTransferDetailsBodyState extends State<StockTransferDetailsBody> {
 
   Widget _buildActionButton() {
     final details = stockTransferDetailsModal!;
+    print("Warehouse Codes: ${details.fromWarehouseCode}, ${details.toWarehouseCode}");
+    print("Showroom Warehouses: ${showroomWarehouseList.map((w) => w.code).join(', ')}");
     final fromInShowroom = showroomWarehouseList.any((w) => w.code == details.fromWarehouseCode);
     final toInShowroom = showroomWarehouseList.any((w) => w.code == details.toWarehouseCode);
-    final isApprovedActive = details.approvalStatus == "approved" && details.status == "active";
 
+    print("From in Showroom: $fromInShowroom, To in Showroom: $toInShowroom");
 
-    if (!isApprovedActive) {
+    // Check if transfer is completed
+    if (details.goodsReceiptNumber != null) {
+      return comment("Stock Transfer completed", Colors.green);
+    }
+
+    // Check approval status first
+    if (details.approvalStatus == "cancelled" || details.approvalStatus == "rejected") {
+      return comment("Stock Transfer has been ${details.approvalStatus}", Colors.red);
+    }
+
+    if (details.approvalStatus == "pending") {
+      return comment("Stock Transfer is pending approval", Colors.orange);
+    }
+
+    // Check if transfer is inactive
+    if (details.status == "inactive") {
+      return comment("Stock Transfer is inactive", Colors.red);
+    }
+
+    // Must be approved and active for any actions
+    if (details.approvalStatus != "approved" || details.status != "active") {
       return comment("Stock Transfer is not approved or inactive", Colors.red);
     }
 
-    // Approved & active
-    if (toInShowroom) {
-      if (details.goodsIssueNumber != null) {
-        return RoundedButton(
-          btnText: "Receive Goods",
-          press: () => Navigator.pushNamed(
-              context, "/receive_goods",
-              arguments: details.goodsIssueNumber.toString()),
-          btnColor: kSecondaryColor,
-          textColor: Colors.white,
-        );
-      } else {
-        return comment("Stock Transfer is approved pending goods issue", Colors.green);
-      }
-    }
-
+    // From warehouse actions - Create goods issue
     if (fromInShowroom && details.goodsIssueNumber == null) {
       return RoundedButton(
         btnText: "Create Goods Issue",
@@ -139,8 +147,90 @@ class _StockTransferDetailsBodyState extends State<StockTransferDetailsBody> {
       );
     }
 
+    // To warehouse actions - Receive goods
+    if (toInShowroom && details.goodsIssueNumber != null && details.goodsReceiptNumber == null) {
+      print("To warehouse is in showroom");
+      return RoundedButton(
+        btnText: "Receive Goods",
+        press: () {
+          _handleReceiveAction();
+        },
+          btnColor: kSecondaryColor,
+          textColor: Colors.white,
+        );
+    }
+
+    // Transfer between external warehouses
+    if (!fromInShowroom && !toInShowroom) {
+      if (details.goodsIssueNumber == null) {
+        return comment("Goods issue pending from external warehouse", Colors.blue);
+      } else if (details.goodsReceiptNumber == null) {
+        return comment("Goods receipt pending at external warehouse", Colors.blue);
+      }
+    }
+
+    // Goods issue created but not applicable for this showroom
+    if (details.goodsIssueNumber != null && !toInShowroom) {
+      return comment("Goods issued - awaiting receipt at destination", Colors.blue);
+    }
+
+    // No goods issue created but not applicable for this showroom
+    if (details.goodsIssueNumber == null && !fromInShowroom) {
+      return comment("Awaiting goods issue from source warehouse", Colors.blue);
+    }
+
     // Fallback
     return comment("No actions available for this transfer", Colors.grey);
+  }
+
+  Future<void> _handleReceiveAction() async {
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      if(token == null){
+        dynamicMaster.displayError(context, "Error", "Session expired. Kindly login again.");
+        return;
+      }
+
+      if(stockTransferDetailsModal == null){
+        dynamicMaster.displayError(context, "Error", "No stock transfer details found");
+        return;
+      }
+
+      if(stockTransferDetailsModal!.goodsReceiptNumber != null){
+        dynamicMaster.displayError(context, "Error", "Stock Transfer has already been received");
+        return;
+      }
+
+      if(stockTransferDetailsModal!.status == "inactive"){
+        dynamicMaster.displayError(context, "Error", "Stock Transfer is inactive");
+        return;
+      }
+
+      dynamicMaster.displayLoadingModal(context);
+
+      var response = await apiService.getGoodsIssueDetails(stockTransferDetailsModal!.goodsIssueNumber.toString(), token);
+
+      Navigator.pop(context);
+
+      if(response["status"] == "success" && response["data"] != null){
+        var goodsIssueObject = goodsIssueDetailsModalFromJson(jsonEncode(response["data"][0]));
+
+        if(goodsIssueObject.documentStatus == "C"){
+          dynamicMaster.displayError(context, "Error", "Goods Issue has already been closed");
+          return;
+        }
+
+        Navigator.pushNamed(context, "/receive_goods_issue", arguments: goodsIssueObject);
+
+      } else {
+        dynamicMaster.displayError(context, "Error", "Failed to fetch goods issue details");
+      }
+
+    } catch (e) {
+      dynamicMaster.displayError(context, "Error", e.toString());
+      return;
+    }
   }
 
   @override

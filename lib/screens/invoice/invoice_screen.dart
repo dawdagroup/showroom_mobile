@@ -11,13 +11,15 @@ class InvoiceScreen extends StatefulWidget {
 }
 
 class _InvoiceScreenState extends State<InvoiceScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DynamicMaster dynamicMaster = DynamicMaster();
 
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(Theme.of(context), context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(Theme.of(context), context, _scaffoldKey),
       body: const InvoiceScreenBody(),
     );
   }

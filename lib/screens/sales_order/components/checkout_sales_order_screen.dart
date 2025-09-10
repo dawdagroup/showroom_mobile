@@ -9,6 +9,7 @@ import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:showroom_manager/components/rounded_buttons.dart';
 
+import '../../../config/config.dart';
 import '../../../modals/customer_modal.dart';
 import '../../../constant/constants.dart';
 
@@ -27,6 +28,7 @@ class CheckoutSalesOrderScreen extends StatefulWidget {
 }
 
 class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CartController controller = Get.find();
   DynamicMaster dynamicMaster = DynamicMaster();
   ApiService apiService = ApiService();
@@ -65,7 +67,7 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
             return;
           }
           Map<String, dynamic> filters = {
-            'phone_number': "+254${customerPhoneController.text}",
+            'phone_number': "${Config.regionPhonePrefix}${customerPhoneController.text}",
             'status': "active"
           };
           var response = await apiService.filterCustomers(token, filters);
@@ -138,10 +140,11 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
       return;
     }
     
+    
     List<dynamic> productList = await controller.getCartDetails();
 
     Map<String, dynamic> customerData = {
-      "customerPhone": "+254${customerPhoneController.text}",
+      "customerPhone": "${Config.regionPhonePrefix}${customerPhoneController.text}",
       "customerName": customerNameController.text,
       "customerEmail": customerEmailController.text,
       "customerAddress": customerAddressController.text,
@@ -151,7 +154,11 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
       "products": productList
     };
 
+    dynamicMaster.displayLoadingModal(context);
+
     var response = await apiService.postSalesOrder(token, customerData);
+
+    Navigator.pop(context); // Close the loading modal
 
     if(response.isNotEmpty && response["status"] == "success"){
       dynamicMaster.displaySuccessMessage(context, response["message"]);
@@ -186,7 +193,8 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
     ThemeData theme = Theme.of(context);
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      appBar: dynamicMaster.applicationBar(theme, context),
+      key: _scaffoldKey,
+      appBar: dynamicMaster.applicationBar(theme, context, _scaffoldKey),
       body: Container(
         height: size.height,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -206,7 +214,7 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
                           borderSide: BorderSide(),
                       ),
                   ),
-                  initialCountryCode: 'KE',
+                  initialCountryCode: Config.releaseRegion == "UGANDA" ? 'UG' : 'KE',
                   controller: customerPhoneController,
                   onChanged: (phone) {
                   },
@@ -214,6 +222,13 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
                   validator: (PhoneNumber? value) {
                     if (value == null || value.completeNumber.isEmpty) {
                       return 'Please enter a phone number';
+                    }
+                    
+                    if(Config.releaseRegion == "UGANDA"){
+                      if (value.completeNumber.isNotEmpty && !RegExp(r'^(\+256|256)?(7\d{8}|4\d{8})$').hasMatch(value.completeNumber)) {
+                        return 'Please enter a valid Ugandan phone number';
+                      }
+                      return null;
                     }
 
                     if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
@@ -361,23 +376,23 @@ class _CheckoutSalesOrderScreenState extends State<CheckoutSalesOrderScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Customer KRA PIN (optional)',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: 'Customer ${Config.taxPinName} (optional)',
+                    border: const OutlineInputBorder(
                       borderSide: BorderSide(),
                     ),
-                    labelStyle: TextStyle(
+                    labelStyle: const TextStyle(
                       color: kPrimaryColor,
                       fontSize: 14,
                       fontWeight: FontWeight.bold
                     ),
-                    enabledBorder: OutlineInputBorder(
+                    enabledBorder: const OutlineInputBorder(
                       borderSide: BorderSide(
                         width: 1,
                         color: Colors.grey
                       )
                     ),
-                    focusedBorder: OutlineInputBorder(
+                    focusedBorder: const OutlineInputBorder(
                       borderSide: BorderSide(
                         width: 1.5,
                         color: kPrimaryColor

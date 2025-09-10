@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../controllers/cart_controller.dart';
+import '../../../modals/product_modal.dart';
+import 'cart_product_card.dart';
 
 class CardProducts extends StatefulWidget {
   final CartController controller = Get.find();
@@ -13,6 +15,7 @@ class CardProducts extends StatefulWidget {
 }
 
 class _CardProductsState extends State<CardProducts> {
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -22,16 +25,9 @@ class _CardProductsState extends State<CardProducts> {
         child: ListView.builder(
           itemCount: widget.controller.products.length,
           itemBuilder: (context, index) {
-            return ListTile(
-              title: Text(widget.controller.products.keys.elementAt(index).itemName),
-              subtitle: Text('Quantity: ${widget.controller.products.values.elementAt(index)}'),
-              trailing: IconButton(
-                icon: Icon(Icons.remove),
-                onPressed: () {
-                  widget.controller.removeProduct(widget.controller.products.keys.elementAt(index));
-                },
-              ),
-            );
+            ProductModal productModal = widget.controller.products.keys.toList()[index];
+
+            return CartProductCard(product: productModal,);
           },
         ),
       )

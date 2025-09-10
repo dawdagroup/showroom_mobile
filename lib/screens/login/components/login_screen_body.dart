@@ -121,87 +121,89 @@ class _LoginScreenBodyState extends State<LoginScreenBody> {
     Size size = MediaQuery.of(context).size;
 
     return LoginScreenBackground(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            "LOGIN",
-            style: TextStyle(
-              fontWeight: FontWeight.bold
-            ),
-          ),
-          SizedBox(height: size.height * 0.01,),
-          Image.asset(
-            "assets/images/azone.png",
-            width: size.width * 0.5,
-          ),
-          SizedBox(height: size.height * 0.03,),
-          RoundedInputField(
-            hintText: 'Username', 
-            icon: Icons.person, 
-            onChanged: (value) { 
-              if(value.isNotEmpty){
-                setState(() {
-                  _usernameFieldController.text = value;
-                });
-              }else{
-                setState(() {
-                  _usernameFieldController.text = '';
-                });
-              }
-            },
-          ),
-          RoundedPasswordField(
-            onChanged: (value){
-              if(value.isNotEmpty){
-                setState(() {
-                  _passwordFieldController.text = value;
-                });
-              }else{
-                setState(() {
-                  _usernameFieldController.text = '';
-                });
-
-              }
-            },
-          ),
-          SizedBox(height: size.height * 0.03,),
-          RoundedButton(
-            btnText: "LOGIN", 
-            press: () {
-              if(_usernameFieldController.text.isEmpty || _passwordFieldController.text.isEmpty){
-                dynamicMaster.displayError(context, "Error", "Please fill in all fields");
-                return;
-              }
-              submitLoginData(_usernameFieldController.text, _passwordFieldController.text);
-            }, 
-            btnColor: kPrimaryColor, 
-            textColor: Colors.white
-          ),
-          SizedBox(height: size.height * 0.03,),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                "Forgot Your Password ? ", style: TextStyle(color: kSecondaryColor),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "LOGIN",
+              style: TextStyle(
+                fontWeight: FontWeight.bold
               ),
-              GestureDetector(
-                onTap: (){
-                  Navigator.pushNamed(context, '/reset-password');
-                },
-                child: const Text(
-                  "Reset Password",
-                  style: TextStyle(
-                    color: kSecondaryColor,
-                    fontWeight: FontWeight.bold
-                  ),
+            ),
+            SizedBox(height: size.height * 0.01,),
+            Image.asset(
+              "assets/images/azone.png",
+              width: size.width * 0.5,
+            ),
+            SizedBox(height: size.height * 0.03,),
+            RoundedInputField(
+              hintText: 'Username', 
+              icon: Icons.person, 
+              onChanged: (value) { 
+                if(value.isNotEmpty){
+                  setState(() {
+                    _usernameFieldController.text = value;
+                  });
+                }else{
+                  setState(() {
+                    _usernameFieldController.text = '';
+                  });
+                }
+              },
+            ),
+            RoundedPasswordField(
+              onChanged: (value){
+                if(value.isNotEmpty){
+                  setState(() {
+                    _passwordFieldController.text = value;
+                  });
+                }else{
+                  setState(() {
+                    _usernameFieldController.text = '';
+                  });
+        
+                }
+              },
+            ),
+            SizedBox(height: size.height * 0.03,),
+            RoundedButton(
+              btnText: "LOGIN", 
+              press: () {
+                if(_usernameFieldController.text.isEmpty || _passwordFieldController.text.isEmpty){
+                  dynamicMaster.displayError(context, "Error", "Please fill in all fields");
+                  return;
+                }
+                submitLoginData(_usernameFieldController.text, _passwordFieldController.text);
+              }, 
+              btnColor: kPrimaryColor, 
+              textColor: Colors.white
+            ),
+            SizedBox(height: size.height * 0.03,),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "Forgot Your Password ? ", style: TextStyle(color: kSecondaryColor),
                 ),
-              )
-            ],
-          ),
-          SizedBox(height: size.height * 0.03,),
-          Text("Version: $appVersion")
-        ],
+                GestureDetector(
+                  onTap: (){
+                    Navigator.pushNamed(context, '/reset-password');
+                  },
+                  child: const Text(
+                    "Reset Password",
+                    style: TextStyle(
+                      color: kSecondaryColor,
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
+                )
+              ],
+            ),
+            SizedBox(height: size.height * 0.03,),
+            Text("Version: $appVersion")
+          ],
+        ),
       ),
     );
   }
