@@ -15,7 +15,7 @@ import '../../../components/labeled_text_field.dart';
 import '../../../modals/region_modal.dart';
 import '../../../modals/zone_modal.dart';
 import '../../../modals/town_modal.dart';
-import '../../../modals/item_modal.dart';
+import '../../../modals/complaint_product_modal.dart';
 import '../../../components/labeled_date_field.dart';
 import '../../../modals/complaint_type_modal.dart';
 
@@ -68,6 +68,11 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
   bool isLoading = false;
   bool isFormValid = false;
 
+    // Product caching
+  List<ComplaintProductModal> _cachedProducts = [];
+  bool _isLoadingProducts = false;
+  bool _productsLoaded = false;
+
   void selectDateOfPurchase() async {
     
     final DateTime? pickedDate = await showDatePicker(
@@ -94,7 +99,12 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
   void didChangeDependencies() {
     // TODO: implement didChangeDependencies
     super.didChangeDependencies();
-    sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    sessionProvider = Provider.of<SessionProvider>(context, listen: false);    
+
+    // Start preloading products after sessionProvider is available
+    if (!_isLoadingProducts && !_productsLoaded) {
+      _preloadProducts();
+    }
   }
 
   Future<List<RegionModal>> getRegionData(String? filter) async{
@@ -236,39 +246,32 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
     );
   }
 
-  Future<List<ItemModal>> getProductData(String? filter) async{
-    Map<String, dynamic> filters = {};
-
-    try {
-      var token = await sessionProvider.authProvider.token;
-
-      if (token == null) {
-        dynamicMaster.displayError(context, "Error", "No valid session token.");
-        return [];
-      }
-
-      Map<String, dynamic> output = await apiService.fecthProductDetails(token, filters);
-
-      if(output["status"] == "success"){
-        List<ItemModal> minProducts = [];
-        for(var item in output["data"]){
-          // print(item);
-          try{  
-            minProducts.add(itemModalFromJson(jsonEncode(item)));
-          }catch(e){
-            print(e);
-          }
-        }
-        return minProducts;
-      }else{
-        return [];
-      }
-    } catch (e) {
+  Future<List<ComplaintProductModal>> getProductData(String? filter) async{
+    // If products are not loaded yet, try to load them
+    if (!_productsLoaded && !_isLoadingProducts) {
+      await _preloadProducts();
+    }
+    
+    // If still loading, return empty list (or you could show a loading indicator)
+    if (_isLoadingProducts) {
       return [];
     }
+
+    // Filter cached products if a filter is provided
+    if (filter != null && filter.isNotEmpty) {
+      return _cachedProducts.where((product) {
+        final searchTerm = filter.toLowerCase();
+        return product.safeBrand.toLowerCase().contains(searchTerm) ||
+               product.safeModelNo.toLowerCase().contains(searchTerm) ||
+               product.safeItemName.toLowerCase().contains(searchTerm);
+      }).toList();
+    }
+
+    // Return all cached products if no filter
+    return _cachedProducts;
   }
 
-  Widget _productPopupBuilder(BuildContext context, ItemModal item, bool isSelected) {
+  Widget _productPopupBuilder(BuildContext context, ComplaintProductModal item, bool isSelected) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: !isSelected
@@ -280,7 +283,7 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
             ),
       child: ListTile(
         selected: isSelected,
-        title: Text(item.brand + " - " + item.modelNo),
+        title: Text(item.displayName),
       ),
     );
   }
@@ -572,31 +575,85 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
                   ],
                 ),
                 SizedBox(height: size.height * 0.005,),
-                DropdownSearch<ItemModal>(
+                DropdownSearch<ComplaintProductModal>(
                   asyncItems: (String? filter) => getProductData(filter),
                   popupProps: PopupPropsMultiSelection.modalBottomSheet(
                     showSelectedItems: true,
                     itemBuilder: _productPopupBuilder,
                     showSearchBox: true,
+                    loadingBuilder: (context, searchEntry) => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 8),
+                            Text('Loading products...', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    emptyBuilder: (context, searchEntry) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.info_outline, size: 48, color: Colors.grey),
+                            const SizedBox(height: 8),
+                            Text(
+                              _isLoadingProducts 
+                                ? 'Loading products...' 
+                                : (_productsLoaded && _cachedProducts.isEmpty)
+                                  ? 'No products found'
+                                  : 'Products not loaded yet',
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                            if (!_productsLoaded && !_isLoadingProducts)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: ElevatedButton(
+                                  onPressed: _retryLoadProducts,
+                                  child: const Text('Retry Loading'),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  compareFn: (item, sItem) => item.modelNo == sItem.modelNo,
-                  dropdownDecoratorProps: const DropDownDecoratorProps(
+                  compareFn: (item, sItem) => item.safeModelNo == sItem.safeModelNo,
+                  dropdownDecoratorProps: DropDownDecoratorProps(
                     dropdownSearchDecoration: InputDecoration(
-                      labelText: 'Select Product Model',
+                      labelText: _isLoadingProducts 
+                        ? 'Loading products...' 
+                        : 'Select Product Model',
                       filled: true,
                       fillColor: kPrimaryLightColor,
-                      enabledBorder: OutlineInputBorder(
+                      enabledBorder: const OutlineInputBorder(
                         borderSide: BorderSide(
                           color: kPrimaryColor
                         ),
                         borderRadius: BorderRadius.all(Radius.circular(4.0)),
                       ),
+                      suffixIcon: _isLoadingProducts 
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
                     ),
                   ),
+                  enabled: !_isLoadingProducts,
                   onChanged: (value) {
                     if(value != null){
                       setState(() {
-                        modelNumberInputController.text = value.modelNo;
+                        modelNumberInputController.text = value.safeModelNo;
                       });
                     }else{
                       setState(() {
@@ -854,6 +911,71 @@ class _ComplaintRegistrationScreenState extends State<ComplaintRegistrationScree
         submitForm();
       } 
     }
+  }
+
+  Future<void> _preloadProducts() async {
+    if (_isLoadingProducts || _productsLoaded) return;
+    
+    setState(() {
+      _isLoadingProducts = true;
+    });
+
+    print("Starting to preload all products...");
+
+    try {
+      final token = await sessionProvider.authProvider.token;
+      if (token == null) {
+        print("No valid token available for preloading products");
+        setState(() {
+          _isLoadingProducts = false;
+        });
+        return;
+      }
+
+      // Use the existing searchProductDetails method to get all products
+      final Map<String, dynamic> output = await apiService.getAftersalesProducts(token);
+
+      if (output['status'] == 'success') {
+        final List<ComplaintProductModal> products = [];
+        final dataList = output['data'] as List? ?? [];
+        
+        for (final item in dataList) {
+          try {
+            products.add(complaintProductModalFromJson(jsonEncode(item)));
+          } catch (e) {
+            print("Error parsing product item: $e");
+          }
+        }
+
+        setState(() {
+          _cachedProducts = products;
+          _productsLoaded = true;
+          _isLoadingProducts = false;
+        });
+
+        print("Successfully preloaded ${_cachedProducts.length} products");
+      } else {
+        print("Failed to preload products: ${output['status']}");
+        setState(() {
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (e) {
+      print("Exception while preloading products: $e");
+      setState(() {
+        _isLoadingProducts = false;
+      });
+    }
+  }
+
+  // Method to manually retry loading products if initial load failed
+  void _retryLoadProducts() {
+    setState(() {
+      _productsLoaded = false;
+      _isLoadingProducts = false;
+      _cachedProducts.clear();
+    });
+    _preloadProducts();
   }
 
   @override

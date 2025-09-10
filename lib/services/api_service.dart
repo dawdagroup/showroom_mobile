@@ -123,6 +123,40 @@ class ApiService extends ApiMaster {
     return output;
   }
 
+  Future<Map<String, dynamic>> getAftersalesProducts(String sessionToken) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/products/aftersales'); // Change to Uri.https if available
+
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["data"] = responseData["data"];
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching product details";
+        }
+
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData['message'] ?? "An error occurred while fetching product details";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+
   Future<Map<String, dynamic>> fetchUserAccountInfo(String sessionToken) async{
     Map<String, dynamic> output = {};
 
