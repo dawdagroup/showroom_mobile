@@ -38,4 +38,8 @@ class PrinterLayoutModal {
         "created_at": createdAt.toIso8601String(),
         "status": status,
     };
+  @override
+  String toString() {
+    return name;
+  }
 }

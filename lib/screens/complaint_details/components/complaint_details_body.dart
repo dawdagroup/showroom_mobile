@@ -11,10 +11,12 @@ import '../../../modals/aftersale_detailed_modal.dart';
 
 import '../../../constant/constants.dart';
 import '../../../modals/aftersale_movement_type_modal.dart';
+import '../../../modals/printer_layout_modal.dart';
 
 import 'dart:convert';
 
 import '../../../components/labeled_text_field.dart';
+import 'movement_list_item.dart';
 
 class ComplaintDetailsBody extends StatefulWidget {
   final String complaintNo;
@@ -33,6 +35,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
   AftersaleDetailedModal? aftersaleDetailedModal;
 
   List<AftersalesMovementTypeModal> movementTypeDropDownItems = [];
+  List<PrinterLayoutModal> afterSalesLayouts = [];
   List<String> damageTypeList = ["Yes", "No"];
   List<String> packagingMissingList = ["Yes", "No"];
   List<String> accessoriesMissingList = ["Yes", "No"];
@@ -60,6 +63,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
     sessionProvider = Provider.of<SessionProvider>(context, listen: false);
 
     getComplaintDetails();
+    getAfterSalesLayoutsData();
   }
 
   Future<void> getComplaintDetails() async {
@@ -117,7 +121,60 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
     }
   }
   
+  Future<void> getAfterSalesLayoutsData() async {
+    try {
+      var token = await sessionProvider.authProvider.token;
+
+      // Ensure token is not null
+      if (token == null) {
+        dynamicMaster.displayError(context, "Error", "No valid session token.");
+        return;
+      }
+
+      Map<String, dynamic> output = await apiService.getAfterSalesLayouts(token);
+
+      print("Layout API Response:");
+      print(output);
+
+      if(output["status"] == "success"){
+        List<PrinterLayoutModal> layouts = [];
+        for(var item in output["data"]){
+          layouts.add(printerLayoutModalFromJson(jsonEncode(item)));
+        }
+        print("Parsed layouts:");
+        for(var layout in layouts) {
+          print("Layout ID: ${layout.id}, Name: ${layout.name}");
+        }
+        setState(() {
+          afterSalesLayouts = layouts;
+        });
+      }else{
+        dynamicMaster.displayError(context, "Error", output["message"]);
+      }
+    } catch (e) {
+      print(e);
+      dynamicMaster.displayError(context, "Error", "An error occurred while fetching after sales layouts");
+    }
+  }
+  
   Widget _aftersalesMovementTypePopupBuilder(BuildContext context, AftersalesMovementTypeModal item, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: !isSelected
+          ? null
+          : BoxDecoration(
+              border: Border.all(color: Theme.of(context).primaryColor),
+              borderRadius: BorderRadius.circular(5),
+              color: Colors.white,
+            ),
+      child: ListTile(
+        selected: isSelected,
+        title: Text(item.name),
+      ),  
+    );
+  }
+
+  Widget _aftersalesLayoutPopupBuilder(BuildContext context, PrinterLayoutModal item, bool isSelected) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: !isSelected
@@ -471,10 +528,150 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
     );
   }
 
-  Future<void> printActionDialog(BuildContext context) async {
+  Future<void> printLayoutSelectionDialog(BuildContext context) async {
+    // Use the layouts from API if available, otherwise fallback to hardcoded values
 
-    dynamicMaster.displayLoadingModal(context);
+    TextEditingController selectedLayoutController = TextEditingController();
+    bool selectedLayoutHasError = false;
 
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            Size size = MediaQuery.of(context).size;
+            
+            return Dialog(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: size.height * 0.6,
+                  minHeight: size.height * 0.3,
+                ),
+                width: size.width,
+                margin: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Image.asset("assets/images/azone.png", height: 50, width: 50),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            icon: const Icon(Icons.clear, size: 30),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.02),
+                      const Text(
+                        "Select Print Layout",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const Divider(height: 10, thickness: 1),
+                      SizedBox(height: size.height * 0.02),
+                      Row(
+                        children: [
+                          const Text("Print Layout:", style: TextStyle(fontWeight: FontWeight.bold),),
+                          SizedBox(width: size.width * 0.009,),
+                          const Text("*", style: TextStyle(color: Colors.red),),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.01),
+                      
+                      DropdownSearch<PrinterLayoutModal>(
+                        items: afterSalesLayouts,
+                        popupProps: PopupPropsMultiSelection.modalBottomSheet(
+                          showSelectedItems: true,
+                          itemBuilder: _aftersalesLayoutPopupBuilder,
+                          showSearchBox: true,
+                        ),
+                        compareFn: (item, sItem) => item.id == sItem.id,
+                        dropdownDecoratorProps:  DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Select Print Layout',
+                            labelStyle: const TextStyle(color: kPrimaryColor),
+                            filled: true,
+                            fillColor: kPrimaryLightColor,
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: selectedLayoutHasError ? Colors.red : Colors.grey,
+                              ),
+                              // borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                            ),
+                            iconColor: kPrimaryColor,
+                            prefixIconColor: kPrimaryColor
+                          ),
+                          baseStyle: const TextStyle(
+                            color: kPrimaryColor
+                          )
+                        ),
+                        onChanged: (value) {
+                          if(value != null){
+                            print("Selected layout: ID=${value.id}, Name=${value.name}");
+                            setState(() {
+                              selectedLayoutHasError = false;
+                              selectedLayoutController.text = value.id.toString();
+                            });
+                          }else{
+                            setState(() {
+                              selectedLayoutHasError = true;
+                              selectedLayoutController.clear();
+                            });
+                          }
+                        },
+                      ),
+                      SizedBox(height: size.height * 0.03),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: selectedLayoutHasError == false && selectedLayoutController.text.isNotEmpty
+                                  ? () {
+                                      Navigator.of(context).pop();
+                                      printActionDialog(selectedLayoutController.text);
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kSecondaryColor,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text("Print"),
+                            ),
+                          ),
+                          SizedBox(width: size.width * 0.02),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text("Cancel"),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: size.height * 0.02),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> printActionDialog(String layoutType) async {
+    // Close the dialog first to avoid context issues
+    
     try {
       var token = await sessionProvider.authProvider.token;
 
@@ -483,17 +680,37 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
         return;
       }
 
-      var response = await apiService.printItemCollection(token, widget.complaintNo);
+      print("Selected layout ID: $layoutType");
 
-      Navigator.of(context).pop();
+      // Show loading modal after dialog is closed
+      dynamicMaster.displayLoadingModal(context);
+
+      var response = await apiService.printItemCollection(token, widget.complaintNo, layoutType);
+
+      print("Response from print API:");
+      print(response);
+
+      // Dismiss loading modal
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
 
       if(response["status"] == "success"){
         dynamicMaster.displaySuccessMessage(context, "Document sent to printer");
       }else{
-        dynamicMaster.displayError(context, "Error", response["message"]);
+        print("Error response:");
+        print(response);
+        String errorMessage = response["message"] ?? "An error occurred while printing";
+        dynamicMaster.displayError(context, "Error", errorMessage);
       }
     } catch (e) {
+      print("Exception in printActionDialog:");
       print(e);
+      // Dismiss loading modal in case of error
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      dynamicMaster.displayError(context, "Error", "An error occurred while printing");
     }
     
   }
@@ -913,8 +1130,7 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                       ),
                                       ElevatedButton(
                                         onPressed: () {
-                                          // show a loading indicator for 2 seconds
-                                          printActionDialog(context);
+                                          printLayoutSelectionDialog(context);
                                         }, 
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.white,
@@ -938,18 +1154,11 @@ class _ComplaintDetailsBodyState extends State<ComplaintDetailsBody> {
                                       : ListView.builder(
                                         itemCount: aftersaleDetailedModal!.movementsLines.length,
                                         itemBuilder: (context, index) {
-                                          return InkWell(
+                                          return MovementListItem(
+                                            movementLine: aftersaleDetailedModal!.movementsLines[index],
                                             onTap: () {
-                                              // Handle tap if needed
                                               displayMovementDetails(aftersaleDetailedModal!.movementsLines[index]);
                                             },
-                                            child: Card(
-                                              child: ListTile(
-                                                title: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesMoveTypeDetails),
-                                                subtitle: Text(aftersaleDetailedModal!.movementsLines[index].aftersalesCollectionNo.toString()),
-                                                trailing: Text(DateFormat('dd-MM-yyyy').format(DateFormat('yyyy-MM-dd').parse(aftersaleDetailedModal!.movementsLines[index].aftersalesDate))),
-                                              ),
-                                            ),
                                           );
                                         },
                                       )

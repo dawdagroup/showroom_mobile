@@ -1081,30 +1081,41 @@ class ApiService extends ApiMaster {
     return output;
   }
 
-  Future<Map<String, dynamic>> printItemCollection(String sessionToken, String complaintNo) async {
+  Future<Map<String, dynamic>> printItemCollection(String sessionToken, String complaintNo, String layoutType) async {
     Map<String, dynamic> output = {};
 
-    final uri = buildUri('/aftersales/collect-item/print/$complaintNo');
+    final uri = buildUri('/aftersales/layouts/print/');
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+    print(jsonEncode({"layout_id": layoutType, "complaint_no": complaintNo})); // Debugging line to check the data being sent
 
     try {
-      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60));
+      final response = await http.post(uri, headers: headers, body: jsonEncode({"layout_id": layoutType, "complaint_no": complaintNo})).timeout(const Duration(seconds: 60));
 
       if(response.statusCode == 200 && response.body.isNotEmpty){
         var responseData = json.decode(response.body);
 
+        print("API Response Data:"); 
+        print(responseData); // Debugging line to check the response data
+        print("Response Status: ${responseData["status"]}");
+        print("Response Message: ${responseData["message"]}");
+
         if(responseData["status"] == 'success'){
           output["status"] = "success";
-          output["message"] = responseData["message"];
+          output["message"] = responseData["message"] ?? "Document printed successfully";
         }else{
           output["status"] = "failed";
           output["message"] = responseData['message'] ?? "An error occurred while printing item collection";
         }
       }else{
-        var errorData = json.decode(response.body);
-        output["status"] = "failed";
-        output["message"] = errorData['message'] ?? "An error occurred while printing item collection";
+        try {
+          var errorData = json.decode(response.body);
+          output["status"] = "failed";
+          output["message"] = errorData['message'] ?? "An error occurred while printing item collection";
+        } catch (e) {
+          output["status"] = "failed";
+          output["message"] = "Server returned an error (${response.statusCode}): ${response.body.isNotEmpty ? response.body : 'No details available'}";
+        }
       }
     } catch (e) {
       output["status"] = "failed";
@@ -2073,8 +2084,6 @@ class ApiService extends ApiMaster {
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
 
-    print(json.encode(queryParameters));
-
     try {
       final response = await http.post(uri,body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
 
@@ -2358,6 +2367,8 @@ class ApiService extends ApiMaster {
     
     try {
       final response = await http.post(uri, body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      print("Fiscalize Response: ${response.statusCode} - ${response.body}");
 
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         var responseData = json.decode(response.body);
@@ -2664,5 +2675,42 @@ class ApiService extends ApiMaster {
 
     return output;
   }
+
+  Future<Map<String, dynamic>> getAfterSalesLayouts(String sessionToken) async {
+    Map<String, dynamic> output = {};
+
+    final uri = buildUri('/aftersales/layouts/'); // Change to Uri.https if available
+    
+    headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    try {
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        var responseData = json.decode(response.body);
+
+        if(responseData["status"] == 'success'){
+          output["status"] = "success";
+          output["message"] = responseData['message'] ?? "Aftersales layouts details fetched successfully";
+          output["data"] = responseData["data"];
+        }else{
+          output["status"] = "failed";
+          output["message"] = responseData['message'] ?? "An error occurred while fetching aftersales layouts details";
+        }
+
+      } else {
+        var errorData = json.decode(response.body);
+        output["status"] = "failed";
+        output["message"] = errorData["detail"]['message'] ?? "An error occurred while fetching aftersales layouts details";
+      }
+    } catch (e) {
+      output["status"] = "failed";
+      output["message"] = "We are unable to connect to the server at the moment. Please check your internet connection and try again.";
+    }
+
+    return output;
+  }
+
+  
 
 }
