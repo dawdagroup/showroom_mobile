@@ -127,6 +127,9 @@ class _StockTransferScreenBodyState extends State<StockTransferScreenBody> {
       "to_warehouse_code_list": [for (var item in fetchedWarehouseList) item.code].join(","),
     };
     filterPendingStockTransferInit(filters: filters2);
+
+    // order the list by createdAt descending
+    stockTransferList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   @override

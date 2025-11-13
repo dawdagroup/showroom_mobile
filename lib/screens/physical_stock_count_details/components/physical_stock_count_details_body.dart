@@ -111,12 +111,19 @@ class _PhysicalStockCountDetailsBodyState extends State<PhysicalStockCountDetail
       Navigator.of(context).pop();
 
       if(response["status"] == "success"){
-        ProductModal product = productModalFromJson(jsonEncode(response["data"][0]));
+        try {
+          ProductModal product = productModalFromJson(jsonEncode(response["data"][0]));
 
-        var productStockTakeResponse = await stockCountController.addProduct(product);
+          var productStockTakeResponse = await stockCountController.addProduct(product);
 
-        if(!productStockTakeResponse["success"]){
-          dynamicMaster.displayError(context, "Error", productStockTakeResponse["message"]);
+          if(!productStockTakeResponse["success"]){
+            dynamicMaster.displayError(context, "Error", productStockTakeResponse["message"]);
+            return;
+          }
+        } catch (e) {
+          print("DEBUG: Error parsing product data: $e Response data: ${response["data"]}");
+          print(e);
+          dynamicMaster.displayError(context, "Error", "No product found with this barcode");
           return;
         }
       }else{

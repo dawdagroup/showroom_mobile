@@ -1111,7 +1111,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                   if(Config.releaseRegion == "KENYA"){
 
-                    if (!RegExp(r'^(\+254|254)?(11\d{7}|7\d{8})$').hasMatch(value.completeNumber)) {
+                    if (!RegExp(r'^(\+254|254)?(1\d{8}|7\d{8})$').hasMatch(value.completeNumber)) {
                       return 'Please enter a valid Kenyan phone number';
                     }
                   } else if(Config.releaseRegion == "TANZANIA"){

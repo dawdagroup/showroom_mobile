@@ -127,7 +127,7 @@ class PrinterService {
     var pointsRedeemed = points['Points Redeemed'] ?? 0;
     _printHeader(printer);
     _printCustomerInfo(printer, details);
-    if (points.isNotEmpty) {
+    if (points.isNotEmpty && Config.releaseRegion == "KENYA") {
       _printLoyaltyPoints(printer, points);
     }
     _printItemsTable(printer, details.invoiceItems);
@@ -147,7 +147,7 @@ class PrinterService {
         _printControlUnitInfo(printer, [
           {'FDN No': details.fiscalizationNumber ?? 'N/A'},
           {'Verification Code': details.cuSerial ?? 'N/A'},
-          {'Invoice ID': details.cuDate ?? 'N/A'},
+          // {'Invoice ID': details.cuDate ?? 'N/A'},
         ]);
 
         _printQRCode(printer, details.qrCodeLink!);
@@ -170,7 +170,7 @@ class PrinterService {
         _printControlUnitInfo(printer, [
           {'FDN No': 'N/A'},
           {'Verification Code': 'N/A'},
-          {'Invoice ID': 'N/A'},
+          // {'Invoice ID': 'N/A'},
         ]);
       }else{
         _printControlUnitInfo(printer, [{'SCU Date': 'N/A'}, {'SCU ID': 'N/A'}, {'SCU Serial No': 'N/A'},]);

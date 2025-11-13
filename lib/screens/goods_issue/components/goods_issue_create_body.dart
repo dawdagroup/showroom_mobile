@@ -115,11 +115,15 @@ class _GoodsIssueCreateBodyState extends State<GoodsIssueCreateBody> {
 
       var response = await apiService.processStockTransferGoodsIssue(token, queryParameters);
 
-      Navigator.pop(context);
+      Navigator.pop(context); // Close loading dialog
 
       if(response["status"] == "success"){
-        dynamicMaster.displaySuccessMessage(context, response["message"]);
-        Get.back();
+        // Show success message first
+        await dynamicMaster.displaySuccessMessage(context, response["message"]);
+        // Then navigate back if widget is still mounted
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       }else{
         dynamicMaster.displayError(context, "Error", response["message"]);
       }

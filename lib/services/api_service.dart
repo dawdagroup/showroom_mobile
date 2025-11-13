@@ -1124,7 +1124,7 @@ class ApiService extends ApiMaster {
 
     return output;
   }
-
+  
   Future<Map<String, dynamic>> addCustomer(String sessionToken, Map<String, dynamic> data) async {
     Map<String, dynamic> output = {};
 
@@ -2083,6 +2083,8 @@ class ApiService extends ApiMaster {
     final uri = buildUri('/stocks/transfer-request'); // Change to Uri.https if available
 
     headers[HttpHeaders.authorizationHeader] = 'Bearer $sessionToken';
+
+    print(json.encode(queryParameters));
 
     try {
       final response = await http.post(uri,body: json.encode(queryParameters), headers: headers).timeout(const Duration(seconds: 60)); // Adding a timeout
